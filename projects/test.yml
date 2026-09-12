@@ -7,7 +7,7 @@ tags: [static]
 repo: project-graphite/test
 authors: [AmrMsCLL]
 status: live
-listed: false
+listed: true
 
 deploy:
   kind: pages
