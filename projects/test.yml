@@ -1,17 +1,17 @@
 slug: test
-name: Test
+name: 2048
 summary: >
-  A throwaway deployment used to exercise the pipeline from repository template through
-  registry entry to a live subdomain.
-tags: [static]
+  Gabriele Cirulli's 2048, vendored unmodified and deployed to exercise the pipeline
+  from repository template through registry entry to a live subdomain.
+tags: [static, javascript]
 repo: project-graphite/test
-authors: [AmrMsCLL]
+authors: [gabrielecirulli]
 status: live
 listed: true
 
 deploy:
   kind: pages
-  host: test.project-graphite.com
+  host: 2048.project-graphite.com
   source:
     directory: web
     output: "."
