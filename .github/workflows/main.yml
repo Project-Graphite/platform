@@ -24,6 +24,19 @@ jobs:
 
       - run: python scripts/compile.py projects.json
 
+      - name: Require the deploy app
+        env:
+          APP_ID: ${{ secrets.PLATFORM_APP_ID }}
+        run: |
+          set -euo pipefail
+          if [ -z "$APP_ID" ]; then
+            echo "::error::PLATFORM_APP_ID and PLATFORM_APP_PRIVATE_KEY are not set for this organisation."
+            echo "Create the Graphite Deploy GitHub App, install it on platform and portfolio,"
+            echo "and add both as organisation secrets. The registry itself is valid; only the"
+            echo "sync to the portfolio is blocked."
+            exit 1
+          fi
+
       - uses: actions/create-github-app-token@v3
         id: app-token
         with:
