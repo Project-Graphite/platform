@@ -1,0 +1,13 @@
+slug: project-template
+name: Project template
+summary: >
+  The starting point every project is created from: shared CI wiring, the compose
+  setup and the service convention.
+tags: [github-actions, docker]
+repo: project-graphite/project-template
+authors: [AmrMsCLL]
+status: source-only
+listed: false
+
+deploy:
+  kind: none
