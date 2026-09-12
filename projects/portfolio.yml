@@ -3,7 +3,7 @@ name: Portfolio
 summary: >
   The index of everything built in this organisation — what each project is,
   who built it, and where it is running.
-tags: [astro, typescript]
+tags: [react, vite, typescript]
 repo: project-graphite/portfolio
 authors: [AmrMsCLL]
 status: live
