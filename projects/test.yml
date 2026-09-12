@@ -1,0 +1,17 @@
+slug: test
+name: Test
+summary: >
+  A throwaway deployment used to exercise the pipeline from repository template through
+  registry entry to a live subdomain.
+tags: [static]
+repo: project-graphite/test
+authors: [AmrMsCLL]
+status: live
+listed: false
+
+deploy:
+  kind: pages
+  host: test.project-graphite.com
+  source:
+    directory: web
+    output: "."
