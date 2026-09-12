@@ -1,0 +1,28 @@
+name: PR
+
+on: pull_request
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  registry:
+    name: Registry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml jsonschema
+      - run: python scripts/validate.py
+
+  secrets:
+    name: Secrets
+    uses: project-graphite/actions/.github/workflows/reusable-gitleaks.yml@v1
+
+  checks:
+    name: Checks
+    uses: project-graphite/actions/.github/workflows/reusable-pr-checks.yml@v1
+    secrets: inherit

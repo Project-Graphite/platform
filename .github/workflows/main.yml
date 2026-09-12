@@ -1,0 +1,57 @@
+name: Main
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - projects/**
+      - scripts/compile.py
+
+jobs:
+  publish:
+    name: Publish registry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - run: pip install pyyaml jsonschema
+
+      - run: python scripts/validate.py
+
+      - run: python scripts/compile.py projects.json
+
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.PLATFORM_APP_ID }}
+          private-key: ${{ secrets.PLATFORM_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: portfolio
+
+      - name: Sync to portfolio
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+
+          git clone --quiet --depth 1 "https://x-access-token:${TOKEN}@github.com/${OWNER}/portfolio.git" /tmp/portfolio
+          install -D projects.json /tmp/portfolio/site/src/data/projects.json
+
+          cd /tmp/portfolio
+          git config user.name "graphite-registry"
+          git config user.email "registry@project-graphite.com"
+          git add site/src/data/projects.json
+
+          if git diff --cached --quiet; then
+            echo "Registry unchanged; portfolio already current."
+            exit 0
+          fi
+
+          git commit --message "chore: sync registry from platform@${GITHUB_SHA::7}"
+          git push
+          echo "Portfolio updated."
