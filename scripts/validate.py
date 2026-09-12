@@ -7,7 +7,7 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 VALIDATOR = jsonschema.Draft202012Validator(
-    json.loads((ROOT / "schema" / "project.schema.json").read_text())
+    json.loads((ROOT / "schema" / "project.schema.json").read_text(encoding="utf-8"))
 )
 
 
@@ -58,7 +58,7 @@ def host_collisions(entries):
 
 def main():
     entries = [
-        (path, yaml.safe_load(path.read_text()))
+        (path, yaml.safe_load(path.read_text(encoding="utf-8")))
         for path in sorted((ROOT / "projects").glob("*.yml"))
     ]
 

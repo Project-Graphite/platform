@@ -24,7 +24,11 @@ def topology(deploy):
         }
 
     if deploy["kind"] == "pages":
-        return {"kind": "pages", "database": "none", "services": []}
+        return {
+            "kind": "pages",
+            "database": "none",
+            "services": [{"name": "static", "route": "/", "port": None, "size": "small"}],
+        }
 
     return None
 
@@ -52,11 +56,11 @@ def main():
         print("usage: compile.py <output-path>", file=sys.stderr)
         return 1
 
-    projects = [yaml.safe_load(path.read_text()) for path in sorted((ROOT / "projects").glob("*.yml"))]
+    projects = [yaml.safe_load(path.read_text(encoding="utf-8")) for path in sorted((ROOT / "projects").glob("*.yml"))]
     cards = [card(project) for project in projects if project.get("listed", True)]
     cards.sort(key=lambda entry: (not entry["featured"], entry["name"].lower()))
 
-    pathlib.Path(sys.argv[1]).write_text(json.dumps(cards, indent=2) + "\n")
+    pathlib.Path(sys.argv[1]).write_text(json.dumps(cards, indent=2) + "\n", encoding="utf-8")
     print(f"Compiled {len(cards)} of {len(projects)} entries to {sys.argv[1]}.")
     return 0
 
