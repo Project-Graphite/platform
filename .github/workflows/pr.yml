@@ -24,5 +24,8 @@ jobs:
 
   checks:
     name: Checks
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     uses: project-graphite/actions/.github/workflows/reusable-pr-checks.yml@v1
-    secrets: inherit
