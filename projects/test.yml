@@ -1,5 +1,5 @@
 slug: test
-name: 2048
+name: "2048"
 summary: >
   Gabriele Cirulli's 2048, vendored unmodified and deployed to exercise the pipeline
   from repository template through registry entry to a live subdomain.
