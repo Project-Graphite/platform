@@ -8,9 +8,13 @@ Nothing secret is committed — credentials live on the host, outside git.
 
 ## The registry
 
+`people/<handle>.yml` describes a person and claims a namespace: everything they own is listed
+at `project-graphite.com/<handle>`.
+
 `projects/<slug>.yml` is the single source of truth for a project. It drives:
 
-- the card and detail page on [project-graphite.com](https://project-graphite.com)
+- the card on [project-graphite.com](https://project-graphite.com) and the project page at
+  `/<owner>/<slug>`
 - which container images get built and where they are pushed
 - the generated compose file and Traefik routing
 - the DNS record
@@ -29,7 +33,8 @@ human edit, and a `git log` on `tags/` reads as a deployment history.
 | `summary` | yes | 20–240 characters. One or two sentences, present tense, no marketing. |
 | `tags` | no | Up to six lowercase technology tags. |
 | `repo` | yes | `project-graphite/<name>`. |
-| `authors` | yes | GitHub usernames. Everyone who built it, in the order they should be credited. |
+| `owner` | yes | Handle of the person whose namespace it lives in. Must exist in `people/`. |
+| `authors` | yes | GitHub usernames. Everyone who built it, in the order they should be credited. An author with a `people/` entry links to their page; anyone else links to their GitHub profile. |
 | `status` | yes | `live`, `wip`, `archived` or `source-only`. |
 | `featured` | no | Sorts the entry to the top of the portfolio. |
 | `listed` | no | `false` hides it from the portfolio. For platform pieces only. |
@@ -106,12 +111,43 @@ application.
 A repository cannot deploy until its registry entry exists — `reusable-deploy` fails with a clear
 message rather than silently doing nothing.
 
+## People
+
+`people/<handle>.yml`:
+
+```yaml
+handle: amr
+github: AmrMsCLL
+name: Amr El-Sheraey
+headline: Full-stack engineer, Cairo
+bio: >
+  Two or three sentences. What you work on and what you are interested in.
+links:
+  - label: github
+    url: https://github.com/AmrMsCLL
+  - label: linkedin
+    url: https://www.linkedin.com/in/amrsherieycll
+```
+
+| Field | Required | Notes |
+| :--- | :--- | :--- |
+| `handle` | yes | Lowercase. Becomes the URL segment and must match the filename. |
+| `github` | yes | GitHub username. Used to link `authors` entries to this page. |
+| `name` | yes | Display name. |
+| `headline` | no | One line, shown under the name. |
+| `bio` | no | Up to 600 characters. |
+| `links` | no | Up to six labelled links. Must be `https://`. |
+
+**`owner` and `authors` are different things.** `owner` is whose namespace the project lives in;
+`authors` is who actually wrote it. A vendored or collaborative project can be owned by one person
+and credited to someone else entirely.
+
 ## Scripts
 
 | Script | Purpose |
 | :--- | :--- |
 | `scripts/validate.py` | Check every entry against the schema, plus the cross-checks the schema cannot express |
-| `scripts/compile.py` | Render the registry to the `projects.json` the portfolio consumes |
+| `scripts/compile.py` | Render people and projects to the `registry.json` the portfolio consumes |
 
 Both need `pyyaml` and `jsonschema`:
 
@@ -120,8 +156,9 @@ pip install pyyaml jsonschema
 python scripts/validate.py
 ```
 
-`validate.py` catches what a schema alone cannot: filename against slug, repository against slug,
-duplicate hostnames across projects, and two services claiming the same route.
+`validate.py` catches what a schema alone cannot: filename against slug or handle, repository
+against slug, an `owner` with no `people/` entry, duplicate hostnames across projects, duplicate
+GitHub accounts across people, and two services claiming the same route.
 
 ## Editor support
 
@@ -130,7 +167,8 @@ Point your editor at the schema for completion and inline errors. In VS Code, `s
 ```json
 {
   "yaml.schemas": {
-    "./schema/project.schema.json": "projects/*.yml"
+    "./schema/project.schema.json": "projects/*.yml",
+    "./schema/person.schema.json": "people/*.yml"
   }
 }
 ```

@@ -9,6 +9,7 @@
     "name",
     "summary",
     "repo",
+    "owner",
     "authors",
     "status",
     "deploy"
@@ -41,6 +42,11 @@
     "repo": {
       "type": "string",
       "pattern": "^project-graphite/[A-Za-z0-9._-]+$"
+    },
+    "owner": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$",
+      "description": "Handle of the person whose namespace this project lives in."
     },
     "authors": {
       "type": "array",

@@ -5,6 +5,7 @@ summary: >
   who built it, and where it is running.
 tags: [react, vite, typescript]
 repo: project-graphite/portfolio
+owner: amr
 authors: [AmrMsCLL]
 status: live
 featured: false

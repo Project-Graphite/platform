@@ -7,6 +7,17 @@ import yaml
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
+def load(directory):
+    return [
+        yaml.safe_load(path.read_text(encoding="utf-8"))
+        for path in sorted((ROOT / directory).glob("*.yml"))
+    ]
+
+
+def collapse(text):
+    return " ".join(text.split())
+
+
 def topology(deploy):
     if deploy["kind"] == "compose":
         return {
@@ -33,21 +44,36 @@ def topology(deploy):
     return None
 
 
-def card(project):
+def project_card(project):
     deploy = project["deploy"]
     host = deploy.get("host")
     return {
         "slug": project["slug"],
         "name": project["name"],
-        "summary": " ".join(project["summary"].split()),
+        "summary": collapse(project["summary"]),
         "tags": project.get("tags", []),
         "repo": project["repo"],
         "repoUrl": f"https://github.com/{project['repo']}",
+        "owner": project["owner"],
         "authors": project["authors"],
         "status": project["status"],
         "featured": project.get("featured", False),
         "url": f"https://{host}" if host and project["status"] == "live" else None,
+        "path": f"/{project['owner']}/{project['slug']}",
         "topology": topology(deploy),
+    }
+
+
+def person_card(person):
+    return {
+        "handle": person["handle"],
+        "github": person["github"],
+        "githubUrl": f"https://github.com/{person['github']}",
+        "name": person["name"],
+        "headline": person.get("headline"),
+        "bio": collapse(person["bio"]) if person.get("bio") else None,
+        "links": person.get("links", []),
+        "path": f"/{person['handle']}",
     }
 
 
@@ -56,12 +82,15 @@ def main():
         print("usage: compile.py <output-path>", file=sys.stderr)
         return 1
 
-    projects = [yaml.safe_load(path.read_text(encoding="utf-8")) for path in sorted((ROOT / "projects").glob("*.yml"))]
-    cards = [card(project) for project in projects if project.get("listed", True)]
-    cards.sort(key=lambda entry: (not entry["featured"], entry["name"].lower()))
+    projects = [project_card(p) for p in load("projects") if p.get("listed", True)]
+    projects.sort(key=lambda entry: (not entry["featured"], entry["name"].lower()))
 
-    pathlib.Path(sys.argv[1]).write_text(json.dumps(cards, indent=2) + "\n", encoding="utf-8")
-    print(f"Compiled {len(cards)} of {len(projects)} entries to {sys.argv[1]}.")
+    people = [person_card(p) for p in load("people")]
+    people.sort(key=lambda entry: entry["name"].lower())
+
+    registry = {"people": people, "projects": projects}
+    pathlib.Path(sys.argv[1]).write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+    print(f"Compiled {len(people)} people and {len(projects)} projects to {sys.argv[1]}.")
     return 0
 
 

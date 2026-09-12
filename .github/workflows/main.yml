@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - projects/**
+      - people/**
       - scripts/compile.py
 
 jobs:
@@ -22,7 +23,7 @@ jobs:
 
       - run: python scripts/validate.py
 
-      - run: python scripts/compile.py projects.json
+      - run: python scripts/compile.py registry.json
 
       - name: Require the deploy app
         env:
@@ -53,12 +54,12 @@ jobs:
           set -euo pipefail
 
           git clone --quiet --depth 1 "https://x-access-token:${TOKEN}@github.com/${OWNER}/portfolio.git" /tmp/portfolio
-          install -D projects.json /tmp/portfolio/site/src/data/projects.json
+          install -D registry.json /tmp/portfolio/site/src/data/registry.json
 
           cd /tmp/portfolio
           git config user.name "graphite-registry"
           git config user.email "registry@project-graphite.com"
-          git add site/src/data/projects.json
+          git add site/src/data/registry.json
 
           if git diff --cached --quiet; then
             echo "Registry unchanged; portfolio already current."

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/project-graphite/platform/blob/main/schema/person.schema.json",
+  "title": "Project Graphite person entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["handle", "github", "name"],
+  "properties": {
+    "handle": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$",
+      "description": "URL segment for this person. project-graphite.com/<handle>"
+    },
+    "github": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
+    },
+    "name": { "type": "string", "minLength": 2, "maxLength": 60 },
+    "headline": { "type": "string", "minLength": 4, "maxLength": 100 },
+    "bio": { "type": "string", "minLength": 20, "maxLength": 600 },
+    "links": {
+      "type": "array",
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "url"],
+        "properties": {
+          "label": { "type": "string", "minLength": 2, "maxLength": 20 },
+          "url": { "type": "string", "pattern": "^https://" }
+        }
+      }
+    }
+  }
+}
