@@ -1,0 +1,14 @@
+slug: windhawk-mods
+name: Windhawk Mods
+summary: >
+  Windhawk mods for Windows 11. Tech Stack Launcher puts a button on the taskbar that starts and
+  stops a configurable working set of apps, folders, editors, URLs and terminal commands.
+tags: [cpp, windows, windhawk, win32]
+repo: project-graphite/windhawk-mods
+owner: amr
+authors: [AmrMsCLL]
+status: source-only
+listed: true
+
+deploy:
+  kind: none
