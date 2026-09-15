@@ -8,13 +8,13 @@ Nothing secret is committed — credentials live on the host, outside git.
 
 ## The registry
 
-`people/<handle>.yml` describes a person and claims a namespace: everything they own is listed
-at `project-graphite.com/<handle>`.
+`people/<handle>.yml` describes a person and creates their portfolio at
+`project-graphite.com/members/<handle>`. It includes projects they maintain or are credited on.
 
 `projects/<slug>.yml` is the single source of truth for a project. It drives:
 
 - the card on [project-graphite.com](https://project-graphite.com) and the project page at
-  `/<owner>/<slug>`
+  `/projects/<slug>`
 - which container images get built and where they are pushed
 - the generated compose file and Traefik routing
 - the DNS record
@@ -33,7 +33,7 @@ human edit, and a `git log` on `tags/` reads as a deployment history.
 | `summary` | yes | 20–240 characters. One or two sentences, present tense, no marketing. |
 | `tags` | no | Up to six lowercase technology tags. |
 | `repo` | yes | `project-graphite/<name>`. |
-| `owner` | yes | Handle of the person whose namespace it lives in. Must exist in `people/`. |
+| `owner` | yes | Handle of the member responsible for maintaining it. Must exist in `people/`. |
 | `authors` | yes | GitHub usernames. Everyone who built it, in the order they should be credited. An author with a `people/` entry links to their page; anyone else links to their GitHub profile. |
 | `status` | yes | `live`, `wip`, `archived` or `source-only`. |
 | `featured` | no | Sorts the entry to the top of the portfolio. |
@@ -136,11 +136,11 @@ links:
 | `name` | yes | Display name. |
 | `headline` | no | One line, shown under the name. |
 | `bio` | no | Up to 600 characters. |
-| `links` | no | Up to six labelled links. Must be `https://`. |
+| `links` | no | Up to six labelled links. Must be `https://` or `mailto:`. |
 
-**`owner` and `authors` are different things.** `owner` is whose namespace the project lives in;
-`authors` is who actually wrote it. A vendored or collaborative project can be owned by one person
-and credited to someone else entirely.
+**`owner` and `authors` are different things.** `owner` is the member responsible for maintaining
+the project in Graphite; `authors` is who actually wrote it. A project appears on a member page
+when they maintain it or their GitHub username is credited in `authors`.
 
 ## Scripts
 
