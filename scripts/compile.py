@@ -32,7 +32,8 @@ def project_card(project):
         "status": project["status"],
         "featured": project.get("featured", False),
         "url": f"https://{host}" if host and project["status"] == "live" else None,
-        "path": f"/{project['owner']}/{project['slug']}",
+        "path": f"/projects/{project['slug']}",
+        "legacyPath": f"/{project['owner']}/{project['slug']}",
     }
 
 
@@ -46,7 +47,8 @@ def person_card(person):
         "bio": collapse(person["bio"]) if person.get("bio") else None,
         "stack": person.get("stack", []),
         "links": person.get("links", []),
-        "path": f"/{person['handle']}",
+        "path": f"/members/{person['handle']}",
+        "legacyPath": f"/{person['handle']}",
     }
 
 
