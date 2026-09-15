@@ -1,0 +1,27 @@
+slug: fullstack-deploy-lab
+name: Full-stack deployment lab
+summary: >
+  A temporary Django, PostgreSQL, Redis and Celery application used to validate Graphite's complete
+  container build, registry and Compose deployment path.
+tags: [django, postgresql, redis, celery, docker]
+repo: project-graphite/fullstack-deploy-lab
+owner: amr
+authors: [AmrMsCLL]
+status: wip
+listed: false
+
+deploy:
+  kind: compose
+  host: fullstack-deploy-lab.project-graphite.com
+  database: postgres
+  services:
+    web:
+      port: 8000
+      route: /
+      size: small
+      env: [SECRET_KEY, ALLOWED_HOSTS, DATABASE_URL, REDIS_URL]
+    worker:
+      route: none
+      size: small
+      command: celery -A config worker --loglevel=info
+      env: [SECRET_KEY, DATABASE_URL, REDIS_URL]
