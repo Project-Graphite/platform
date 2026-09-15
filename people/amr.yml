@@ -7,8 +7,27 @@ bio: >
   software at Syntheia. A normal week touches a TypeScript API, a React front end, a Python ML
   service and a Helm chart. Most useful where those meet, and most interested in whichever part
   I have not done before.
+stack:
+  - group: languages
+    items: [TypeScript, JavaScript, Python, C++, SQL]
+  - group: backend
+    items: [NestJS, Express, FastAPI, Django, Prisma, GraphQL]
+  - group: frontend
+    items: [React, Redux Toolkit, Tailwind, MUI, Vite, Office.js]
+  - group: data
+    items: [PostgreSQL, MongoDB, Redis, Qdrant, Milvus]
+  - group: ml
+    items: [PyTorch, Transformers, spaCy, scikit-learn, Celery]
+  - group: platform
+    items: [Docker, Kubernetes, Helm, Terraform, AWS, Azure]
+  - group: testing
+    items: [Jest, Pytest, Playwright, SonarQube]
 links:
   - label: github
     url: https://github.com/AmrMsCLL
   - label: linkedin
     url: https://www.linkedin.com/in/amrsherieycll
+  - label: email
+    url: mailto:amrsherieycll@gmail.com
+  - label: discord
+    url: https://discord.com/users/412317378337046529

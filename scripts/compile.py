@@ -18,35 +18,8 @@ def collapse(text):
     return " ".join(text.split())
 
 
-def topology(deploy):
-    if deploy["kind"] == "compose":
-        return {
-            "kind": "compose",
-            "database": deploy.get("database", "none"),
-            "services": [
-                {
-                    "name": name,
-                    "route": None if service.get("route", "none") == "none" else service["route"],
-                    "port": service.get("port"),
-                    "size": service.get("size", "small"),
-                }
-                for name, service in deploy["services"].items()
-            ],
-        }
-
-    if deploy["kind"] == "pages":
-        return {
-            "kind": "pages",
-            "database": "none",
-            "services": [{"name": "static", "route": "/", "port": None, "size": "small"}],
-        }
-
-    return None
-
-
 def project_card(project):
-    deploy = project["deploy"]
-    host = deploy.get("host")
+    host = project["deploy"].get("host")
     return {
         "slug": project["slug"],
         "name": project["name"],
@@ -60,7 +33,6 @@ def project_card(project):
         "featured": project.get("featured", False),
         "url": f"https://{host}" if host and project["status"] == "live" else None,
         "path": f"/{project['owner']}/{project['slug']}",
-        "topology": topology(deploy),
     }
 
 
@@ -72,6 +44,7 @@ def person_card(person):
         "name": person["name"],
         "headline": person.get("headline"),
         "bio": collapse(person["bio"]) if person.get("bio") else None,
+        "stack": person.get("stack", []),
         "links": person.get("links", []),
         "path": f"/{person['handle']}",
     }
