@@ -32,9 +32,9 @@ jobs:
           set -euo pipefail
           if [ -z "$APP_ID" ]; then
             echo "::error::PLATFORM_APP_ID and PLATFORM_APP_PRIVATE_KEY are not set for this organisation."
-            echo "Create the Graphite Deploy GitHub App, install it on platform and portfolio,"
+            echo "Create the Graphite Deploy GitHub App, install it on platform and graphite-hub,"
             echo "and add both as organisation secrets. The registry itself is valid; only the"
-            echo "sync to the portfolio is blocked."
+            echo "sync to Graphite Hub is blocked."
             exit 1
           fi
 
@@ -44,28 +44,28 @@ jobs:
           app-id: ${{ secrets.PLATFORM_APP_ID }}
           private-key: ${{ secrets.PLATFORM_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: portfolio
+          repositories: graphite-hub
 
-      - name: Sync to portfolio
+      - name: Sync to Graphite Hub
         env:
           TOKEN: ${{ steps.app-token.outputs.token }}
           OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
 
-          git clone --quiet --depth 1 "https://x-access-token:${TOKEN}@github.com/${OWNER}/portfolio.git" /tmp/portfolio
-          install -D registry.json /tmp/portfolio/site/src/data/registry.json
+          git clone --quiet --depth 1 "https://x-access-token:${TOKEN}@github.com/${OWNER}/graphite-hub.git" /tmp/graphite-hub
+          install -D registry.json /tmp/graphite-hub/site/src/data/registry.json
 
-          cd /tmp/portfolio
+          cd /tmp/graphite-hub
           git config user.name "graphite-registry"
           git config user.email "registry@project-graphite.com"
           git add site/src/data/registry.json
 
           if git diff --cached --quiet; then
-            echo "Registry unchanged; portfolio already current."
+            echo "Registry unchanged; Graphite Hub already current."
             exit 0
           fi
 
           git commit --message "chore: sync registry from platform@${GITHUB_SHA::7}"
           git push
-          echo "Portfolio updated."
+          echo "Graphite Hub updated."

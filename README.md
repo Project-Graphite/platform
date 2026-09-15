@@ -106,7 +106,7 @@ application.
 2. Build it. Every deployable folder gets a `Dockerfile`.
 3. Open a pull request here adding `projects/<slug>.yml`.
 4. It is reviewed for name, summary, resource size and the secrets it asks for.
-5. On merge the DNS record appears, the portfolio rebuilds, and the project goes live.
+5. On merge the DNS record appears, Graphite Hub rebuilds, and the project goes live.
 
 A repository cannot deploy until its registry entry exists — `reusable-deploy` fails with a clear
 message rather than silently doing nothing.
@@ -147,7 +147,7 @@ when they maintain it or their GitHub username is credited in `authors`.
 | Script | Purpose |
 | :--- | :--- |
 | `scripts/validate.py` | Check every entry against the schema, plus the cross-checks the schema cannot express |
-| `scripts/compile.py` | Render people and projects to the `registry.json` the portfolio consumes |
+| `scripts/compile.py` | Render people and projects to the `registry.json` Graphite Hub consumes |
 
 Both need `pyyaml` and `jsonschema`:
 

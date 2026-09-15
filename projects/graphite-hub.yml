@@ -1,10 +1,10 @@
-slug: portfolio
-name: Portfolio
+slug: graphite-hub
+name: Graphite Hub
 summary: >
   The index of everything built in this organisation — what each project is,
   who built it, and where it is running.
 tags: [react, vite, typescript]
-repo: project-graphite/portfolio
+repo: project-graphite/graphite-hub
 owner: amr
 authors: [AmrMsCLL]
 status: live
