@@ -10,6 +10,23 @@ authors: [AmrMsCLL]
 status: wip
 listed: false
 
+showcase:
+  problem: >
+    The organisation needed a disposable application that could prove the complete deployment path
+    with a browser, API, persistent database, queue and background worker.
+  approach: >
+    A small Django message board writes messages to PostgreSQL, queues processing through Redis and
+    lets a Celery worker update each record asynchronously. CI publishes immutable web and worker
+    images for a Compose host.
+  outcome: >
+    The lab provides one interaction that verifies routing, application health, persistence,
+    asynchronous work, image promotion, rollback and eventual cleanup without using a toy counter.
+  contributions:
+    - github: AmrMsCLL
+      summary: >
+        Defined the test scenario and owns the deployment, infrastructure and acceptance criteria
+        used to validate the Graphite hosting path.
+
 deploy:
   kind: compose
   host: message-lab.project-graphite.com

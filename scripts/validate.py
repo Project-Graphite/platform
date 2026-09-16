@@ -47,6 +47,12 @@ def project_problems(path, project):
     if slug and repo and repo.split("/")[-1].lower() != slug:
         yield f"{path.name}: repo {repo} does not match slug {slug}"
 
+    authors = {author.lower() for author in project.get("authors", [])}
+    for contribution in project.get("showcase", {}).get("contributions", []):
+        github = contribution.get("github") if isinstance(contribution, dict) else None
+        if github and github.lower() not in authors:
+            yield f"{path.name}: showcase contributor {github} is not listed in authors"
+
     deploy = project.get("deploy")
     if not isinstance(deploy, dict) or deploy.get("kind") != "compose":
         return

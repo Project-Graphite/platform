@@ -8,7 +8,25 @@ repo: project-graphite/windhawk-mods
 owner: amr
 authors: [AmrMsCLL]
 status: source-only
+featured: true
 listed: true
+
+showcase:
+  problem: >
+    A development session can mean opening the same mix of applications, workspaces, folders,
+    URLs and terminal commands, then finding and closing them all again in the right order.
+  approach: >
+    Tech Stack Launcher adds a native taskbar panel with persistent selections, named profiles,
+    grouped items, launch delays and wait-for-exit behavior. It closes the same selection in
+    reverse order and avoids fragile Windows symbol resolution by using a layered child window.
+  outcome: >
+    One taskbar action can start or stop a repeatable working environment while optional tools stay
+    disabled until they are needed, and the integration remains resilient across Windows updates.
+  contributions:
+    - github: AmrMsCLL
+      summary: >
+        Designed and implemented the Win32 taskbar integration, configuration model, process
+        orchestration, profiles, persisted selections and user-facing launcher panel.
 
 deploy:
   kind: none

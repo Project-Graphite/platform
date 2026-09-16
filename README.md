@@ -38,7 +38,25 @@ human edit, and a `git log` on `tags/` reads as a deployment history.
 | `status` | yes | `live`, `wip`, `archived` or `source-only`. |
 | `featured` | no | Sorts the entry to the top of the portfolio. |
 | `listed` | no | `false` hides it from the portfolio. For platform pieces only. |
+| `showcase` | no | Portfolio case study: problem, approach, outcome and credited contributions. |
 | `deploy.kind` | yes | `compose`, `pages` or `none`. |
+
+### Showcase content
+
+Use `showcase` when a project has enough substance for a case-study page. Keep claims concrete and
+credit each member's work directly:
+
+```yaml
+showcase:
+  problem: The repeated workflow or user need the project addresses.
+  approach: The important design and implementation choices.
+  outcome: What the finished project makes possible or measurably improves.
+  contributions:
+    - github: AmrMsCLL
+      summary: The part this person designed, built or maintained.
+```
+
+Every `contributions[].github` entry must also appear in `authors`.
 
 ### `kind: compose`
 

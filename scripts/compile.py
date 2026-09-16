@@ -20,6 +20,7 @@ def collapse(text):
 
 def project_card(project):
     host = project["deploy"].get("host")
+    showcase = project.get("showcase")
     return {
         "slug": project["slug"],
         "name": project["name"],
@@ -31,6 +32,20 @@ def project_card(project):
         "authors": project["authors"],
         "status": project["status"],
         "featured": project.get("featured", False),
+        "showcase": {
+            "problem": collapse(showcase["problem"]),
+            "approach": collapse(showcase["approach"]),
+            "outcome": collapse(showcase["outcome"]),
+            "contributions": [
+                {
+                    "github": contribution["github"],
+                    "summary": collapse(contribution["summary"]),
+                }
+                for contribution in showcase["contributions"]
+            ],
+        }
+        if showcase
+        else None,
         "url": f"https://{host}" if host and project["status"] == "live" else None,
         "path": f"/projects/{project['slug']}",
         "legacyPath": f"/{project['owner']}/{project['slug']}",
