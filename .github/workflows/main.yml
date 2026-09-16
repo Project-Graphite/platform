@@ -6,7 +6,9 @@ on:
     paths:
       - projects/**
       - people/**
-      - scripts/compile.py
+      - schema/**
+      - scripts/**
+      - tags/**
 
 jobs:
   publish:
@@ -22,6 +24,10 @@ jobs:
       - run: pip install pyyaml jsonschema
 
       - run: python scripts/validate.py
+
+      - run: python scripts/test_render_kubernetes.py
+
+      - run: python scripts/render_kubernetes.py /tmp/kubernetes
 
       - run: python scripts/compile.py registry.json
 

@@ -4,3 +4,4 @@
 .terraform.lock.hcl
 __pycache__/
 projects.json
+.rendered/

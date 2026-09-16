@@ -1,106 +1,91 @@
 # platform
 
-The control plane for Project Graphite. One file per project describes what it is, where it runs
-and how it is exposed; everything else is derived from that file.
+The control plane for Project Graphite. One file per project describes what it is, where it runs,
+and how it is exposed. Validation, the public Hub registry, and Kubernetes resources are derived
+from those files.
 
-This repository is private. It holds hostnames, deployment topology and Cloudflare configuration.
-Nothing secret is committed — credentials live on the host, outside git.
+This repository is private. It contains deployment topology, not credentials. Kubernetes Secrets
+and the Cloudflare Tunnel token are created directly in the cluster and never committed.
 
-## The registry
+## Registry
 
-`people/<handle>.yml` describes a person and creates their portfolio at
-`project-graphite.com/members/<handle>`. It includes projects they maintain or are credited on.
+`people/<handle>.yml` describes a member and creates their portfolio at
+`project-graphite.com/members/<handle>`.
 
-`projects/<slug>.yml` is the single source of truth for a project. It drives:
+`projects/<slug>.yml` describes a project and drives:
 
-- the card on [project-graphite.com](https://project-graphite.com) and the project page at
-  `/projects/<slug>`
-- which container images get built and where they are pushed
-- the generated compose file and Traefik routing
-- the DNS record
-- which environment variables must exist before the project can start
+- its Hub card and project page
+- the immutable container images used by each service
+- its Kubernetes namespace, workloads, dependencies, quotas, and network policies
+- the internal gateway route for its hostname
+- the configuration and secret names required at runtime
 
-`tags/<slug>.json` records the image tag currently deployed for each service. **It is written by
-CI, never by hand.** Keeping it out of the registry file means a bot deploy never conflicts with a
-human edit, and a `git log` on `tags/` reads as a deployment history.
+`tags/<slug>.json` records each service's deployed image tag. CI writes these files; people do not.
 
-## Fields
+## Deployment kinds
 
-| Field | Required | Notes |
-| :--- | :--- | :--- |
-| `slug` | yes | Lowercase. Must equal the filename and the repository name. Becomes the subdomain. |
-| `name` | yes | Display name, 2–60 characters. |
-| `summary` | yes | 20–240 characters. One or two sentences, present tense, no marketing. |
-| `tags` | no | Up to six lowercase technology tags. |
-| `repo` | yes | `project-graphite/<name>`. |
-| `owner` | yes | Handle of the member responsible for maintaining it. Must exist in `people/`. |
-| `authors` | yes | GitHub usernames. Everyone who built it, in the order they should be credited. An author with a `people/` entry links to their page; anyone else links to their GitHub profile. |
-| `status` | yes | `live`, `wip`, `archived` or `source-only`. |
-| `featured` | no | Sorts the entry to the top of the portfolio. |
-| `listed` | no | `false` hides it from the portfolio. For platform pieces only. |
-| `showcase` | no | Portfolio case study: problem, approach, outcome and credited contributions. |
-| `deploy.kind` | yes | `compose`, `pages` or `none`. |
+`deploy.kind` is one of:
 
-### Showcase content
+- `kubernetes`: containers on the shared GKE cluster
+- `pages`: a static Cloudflare Pages build
+- `none`: source only
 
-Use `showcase` when a project has enough substance for a case-study page. Keep claims concrete and
-credit each member's work directly:
-
-```yaml
-showcase:
-  problem: The repeated workflow or user need the project addresses.
-  approach: The important design and implementation choices.
-  outcome: What the finished project makes possible or measurably improves.
-  contributions:
-    - github: AmrMsCLL
-      summary: The part this person designed, built or maintained.
-```
-
-Every `contributions[].github` entry must also appear in `authors`.
-
-### `kind: compose`
-
-Runs on the shared host. One Docker Compose project, one container per service.
+### Kubernetes projects
 
 ```yaml
 deploy:
-  kind: compose
+  kind: kubernetes
   host: game-forge.project-graphite.com
-  database: postgres
+  config:
+    LOG_LEVEL: info
+  secrets: [DATABASE_PASSWORD]
+  dependencies:
+    postgres:
+      storage: 5Gi
+  migration:
+    service: server
+    command: [python, manage.py, migrate, --noinput]
   services:
     frontend:
       port: 80
       route: /
-      size: small
+      size: tiny
     server:
       port: 3000
       route: /api
       size: small
-      env: [OPENAI_API_KEY]
+      env: [LOG_LEVEL, DATABASE_PASSWORD]
     worker:
       route: none
-      size: medium
+      size: small
+      command: [python, worker.py]
+      env: [DATABASE_PASSWORD]
 ```
 
-Each key under `services` must name a top-level folder in the repository that contains a
-`Dockerfile`. That is the same convention CI uses to decide what to build, so the two cannot drift.
+Each service key must match a container image published as
+`ghcr.io/project-graphite/<repository>/<service>`. Routes are served internally by the shared
+gateway and exposed only through Cloudflare Tunnel. No project receives a public load balancer or
+NodePort.
 
-| Service field | Notes |
+| Service field | Meaning |
 | :--- | :--- |
-| `port` | Container port. Required when `route` is a path. |
-| `route` | Path prefix such as `/` or `/api`, or `none` for a service with no public route. |
-| `size` | `small` (512 MB, 0.5 CPU) or `medium` (1 GB, 1 CPU). Fixed presets — the host is shared. |
-| `replicas` | 1–3. Defaults to 1. |
-| `env` | Names of variables the service needs. Values live on the host, never here. |
-| `writable` | Paths that need to be writable. Containers run read-only apart from `/tmp`. |
-| `command` | Overrides the image entrypoint command. |
+| `port` | Container port; required for a routed service |
+| `route` | Path prefix, or `none` for a worker |
+| `size` | `tiny`, `small`, or `medium` resource preset |
+| `replicas` | One to three; defaults to one |
+| `env` | Names declared in `config` or `secrets` |
+| `command` | Array overriding the image command |
+| `health` | Optional readiness and liveness HTTP paths |
 
-At least one service must have a path route, and no two may claim the same one.
+Every Kubernetes project gets its own namespace, service account, quota, default limits, config,
+default-deny network policy, and explicitly allowed traffic. Secret values are deliberately absent
+from generated resources.
 
-### `kind: pages`
+The starter `e2-small` node is sized for the Hub plus one small full-stack lab at a time. The
+namespace model supports more projects without redesign, but additional always-on workloads require
+a deliberate node-capacity and cost review.
 
-A static build on Cloudflare Pages. No host resources, free, with preview deployments per pull
-request.
+### Pages projects
 
 ```yaml
 deploy:
@@ -112,75 +97,38 @@ deploy:
     command: npm run build
 ```
 
-### `kind: none`
+### Source-only projects
 
-Source published, nothing deployed. Use it for archived projects and for work that is not a web
-application.
+```yaml
+deploy:
+  kind: none
+```
 
 ## Adding a project
 
-1. Create the repository from
-   [project-template](https://github.com/project-graphite/project-template).
-2. Build it. Every deployable folder gets a `Dockerfile`.
-3. Open a pull request here adding `projects/<slug>.yml`.
-4. It is reviewed for name, summary, resource size and the secrets it asks for.
-5. On merge the DNS record appears, Graphite Hub rebuilds, and the project goes live.
+1. Create a repository from `project-template`.
+2. Add a Dockerfile for each deployable service.
+3. Add and review `projects/<slug>.yml` here.
+4. Merge the project image build and let CI record immutable tags in `tags/<slug>.json`.
+5. Render the cluster resources, create the declared Secrets, and review the diff before applying.
 
-A repository cannot deploy until its registry entry exists — `reusable-deploy` fails with a clear
-message rather than silently doing nothing.
-
-## People
-
-`people/<handle>.yml`:
-
-```yaml
-handle: amr
-github: AmrMsCLL
-name: Amr El-Sheraey
-headline: Full-stack engineer, Cairo
-bio: >
-  Two or three sentences. What you work on and what you are interested in.
-links:
-  - label: github
-    url: https://github.com/AmrMsCLL
-  - label: linkedin
-    url: https://www.linkedin.com/in/amrsherieycll
-```
-
-| Field | Required | Notes |
-| :--- | :--- | :--- |
-| `handle` | yes | Lowercase. Becomes the URL segment and must match the filename. |
-| `github` | yes | GitHub username. Used to link `authors` entries to this page. |
-| `name` | yes | Display name. |
-| `headline` | no | One line, shown under the name. |
-| `bio` | no | Up to 600 characters. |
-| `links` | no | Up to six labelled links. Must be `https://` or `mailto:`. |
-
-**`owner` and `authors` are different things.** `owner` is the member responsible for maintaining
-the project in Graphite; `authors` is who actually wrote it. A project appears on a member page
-when they maintain it or their GitHub username is credited in `authors`.
+The shared deployment workflow refuses projects without a matching platform entry.
 
 ## Scripts
-
-| Script | Purpose |
-| :--- | :--- |
-| `scripts/validate.py` | Check every entry against the schema, plus the cross-checks the schema cannot express |
-| `scripts/compile.py` | Render people and projects to the `registry.json` Graphite Hub consumes |
-
-Both need `pyyaml` and `jsonschema`:
 
 ```sh
 pip install pyyaml jsonschema
 python scripts/validate.py
+python scripts/test_render_kubernetes.py
+python scripts/render_kubernetes.py ./rendered
+python scripts/compile.py registry.json
 ```
 
-`validate.py` catches what a schema alone cannot: filename against slug or handle, repository
-against slug, an `owner` with no `people/` entry, duplicate hostnames across projects, duplicate
-GitHub accounts across people, and two services claiming the same route.
+`validate.py` checks schemas and cross-file ownership, host, service, route, and environment
+contracts. `render_kubernetes.py` produces cluster and per-project YAML. Generated output is a
+review artifact, not committed state.
 
 ## Editor support
-
-Point your editor at the schema for completion and inline errors. In VS Code, `settings.json`:
 
 ```json
 {
@@ -190,14 +138,3 @@ Point your editor at the schema for completion and inline errors. In VS Code, `s
   }
 }
 ```
-
-## Not built yet
-
-The host side is deliberately unwritten until there is a host to run it on:
-
-- `deploy/` — the generated compose files
-- `host/` — the reconcile agent, Traefik and cloudflared, shared Postgres
-- `terraform/` — Cloudflare DNS records derived from the registry
-
-Cloudflare Pages manages its own DNS, so none of this is needed while every project is
-`kind: pages`.

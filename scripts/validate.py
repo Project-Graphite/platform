@@ -54,18 +54,34 @@ def project_problems(path, project):
             yield f"{path.name}: showcase contributor {github} is not listed in authors"
 
     deploy = project.get("deploy")
-    if not isinstance(deploy, dict) or deploy.get("kind") != "compose":
+    if not isinstance(deploy, dict) or deploy.get("kind") != "kubernetes":
         return
+
+    config_names = set(deploy.get("config", {}))
+    secret_names = set(deploy.get("secrets", []))
+    for env_name in sorted(config_names & secret_names):
+        yield f"{path.name}: environment variable {env_name} cannot be both config and secret"
+
+    declared_env = config_names | secret_names
+    services = deploy.get("services", {})
+    for service_name, service in services.items():
+        for env_name in service.get("env", []):
+            if env_name not in declared_env:
+                yield f"{path.name}: service {service_name} uses undeclared environment variable {env_name}"
+
+    migration = deploy.get("migration")
+    if migration and migration.get("service") not in services:
+        yield f"{path.name}: migration service {migration.get('service')} is not declared in services"
 
     routes = [
         service.get("route")
-        for service in deploy.get("services", {}).values()
+        for service in services.values()
         if isinstance(service, dict)
     ]
     exposed = [route for route in routes if route and route != "none"]
 
     if not exposed:
-        yield f"{path.name}: a compose project needs at least one service with a route"
+        yield f"{path.name}: a kubernetes project needs at least one service with a route"
     if len(exposed) != len(set(exposed)):
         yield f"{path.name}: two services claim the same route {sorted(exposed)}"
 
