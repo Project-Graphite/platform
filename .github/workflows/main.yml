@@ -25,10 +25,6 @@ jobs:
 
       - run: python scripts/validate.py
 
-      - run: python scripts/test_render_kubernetes.py
-
-      - run: python scripts/render_kubernetes.py /tmp/kubernetes
-
       - run: python scripts/compile.py registry.json
 
       - name: Require the deploy app

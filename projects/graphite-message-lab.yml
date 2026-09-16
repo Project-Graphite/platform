@@ -2,7 +2,7 @@ slug: graphite-message-lab
 name: Graphite Message Lab
 summary: >
   An interactive message board used to validate Graphite's Django API, PostgreSQL persistence,
-  Redis queue, Celery worker, container registry and Kubernetes deployment path.
+  Redis queue, Celery worker, container registry and Coolify deployment path.
 tags: [django, postgresql, redis, celery, docker]
 repo: project-graphite/graphite-message-lab
 owner: amr
@@ -17,7 +17,7 @@ showcase:
   approach: >
     A small Django message board writes messages to PostgreSQL, queues processing through Redis and
     lets a Celery worker update each record asynchronously. CI publishes immutable web and worker
-    images for a namespace-isolated Kubernetes deployment.
+    images for a resource-limited Docker Compose deployment on the shared Graphite VPS.
   outcome: >
     The lab provides one interaction that verifies routing, application health, persistence,
     asynchronous work, image promotion, rollback and eventual cleanup without using a toy counter.
@@ -28,35 +28,10 @@ showcase:
         used to validate the Graphite hosting path.
 
 deploy:
-  kind: kubernetes
+  kind: compose
   host: message-lab.project-graphite.com
-  config:
-    ALLOWED_HOSTS: message-lab.project-graphite.com
-    POSTGRES_DB: graphite_message_lab
-    POSTGRES_HOST: postgres
-    POSTGRES_USER: graphite_message_lab
-    REDIS_URL: redis://redis:6379/0
-    WEB_CONCURRENCY: "1"
-  secrets: [SECRET_KEY, POSTGRES_PASSWORD]
-  dependencies:
-    postgres:
-      storage: 5Gi
-    redis:
-      storage: 1Gi
-  migration:
+  source:
+    file: compose.production.yaml
     service: web
-    command: [python, manage.py, migrate, --noinput]
-  services:
-    web:
-      port: 8000
-      route: /
-      size: small
-      env: [SECRET_KEY, ALLOWED_HOSTS, POSTGRES_DB, POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, REDIS_URL, WEB_CONCURRENCY]
-      health:
-        readiness: /up/databases
-        liveness: /up
-    worker:
-      route: none
-      size: small
-      command: [celery, -A, config, worker, --loglevel=info, --concurrency=1, --max-tasks-per-child=100]
-      env: [SECRET_KEY, POSTGRES_DB, POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, REDIS_URL]
+    port: 8000
+  secrets: [SECRET_KEY, POSTGRES_PASSWORD]

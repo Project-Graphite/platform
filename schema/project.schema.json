@@ -4,45 +4,22 @@
   "title": "Project Graphite registry entry",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "slug",
-    "name",
-    "summary",
-    "repo",
-    "owner",
-    "authors",
-    "status",
-    "deploy"
-  ],
+  "required": ["slug", "name", "summary", "repo", "owner", "authors", "status", "deploy"],
   "properties": {
     "slug": {
       "type": "string",
       "pattern": "^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$",
-      "description": "Lowercase repository name. Becomes the default hostname and Kubernetes namespace."
+      "description": "Lowercase repository name and default hostname prefix."
     },
-    "name": {
-      "type": "string",
-      "minLength": 2,
-      "maxLength": 60
-    },
-    "summary": {
-      "type": "string",
-      "minLength": 20,
-      "maxLength": 240
-    },
+    "name": {"type": "string", "minLength": 2, "maxLength": 60},
+    "summary": {"type": "string", "minLength": 20, "maxLength": 240},
     "tags": {
       "type": "array",
       "maxItems": 6,
       "uniqueItems": true,
-      "items": {
-        "type": "string",
-        "pattern": "^[a-z0-9][a-z0-9+.-]*$"
-      }
+      "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9+.-]*$"}
     },
-    "repo": {
-      "type": "string",
-      "pattern": "^project-graphite/[A-Za-z0-9._-]+$"
-    },
+    "repo": {"type": "string", "pattern": "^project-graphite/[A-Za-z0-9._-]+$"},
     "owner": {
       "type": "string",
       "pattern": "^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$",
@@ -52,59 +29,26 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "items": {
-        "type": "string",
-        "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
-      }
+      "items": {"type": "string", "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"}
     },
-    "status": {
-      "enum": [
-        "live",
-        "wip",
-        "archived",
-        "source-only"
-      ]
-    },
-    "featured": {
-      "type": "boolean"
-    },
+    "status": {"enum": ["live", "wip", "archived", "source-only"]},
+    "featured": {"type": "boolean"},
     "listed": {
       "type": "boolean",
       "description": "Show this entry on the portfolio. Platform pieces set it to false."
     },
-    "showcase": {
-      "$ref": "#/$defs/showcase"
-    },
-    "deploy": {
-      "$ref": "#/$defs/deploy"
-    }
+    "showcase": {"$ref": "#/$defs/showcase"},
+    "deploy": {"$ref": "#/$defs/deploy"}
   },
   "$defs": {
     "showcase": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "problem",
-        "approach",
-        "outcome",
-        "contributions"
-      ],
+      "required": ["problem", "approach", "outcome", "contributions"],
       "properties": {
-        "problem": {
-          "type": "string",
-          "minLength": 20,
-          "maxLength": 500
-        },
-        "approach": {
-          "type": "string",
-          "minLength": 20,
-          "maxLength": 700
-        },
-        "outcome": {
-          "type": "string",
-          "minLength": 20,
-          "maxLength": 500
-        },
+        "problem": {"type": "string", "minLength": 20, "maxLength": 500},
+        "approach": {"type": "string", "minLength": 20, "maxLength": 700},
+        "outcome": {"type": "string", "minLength": 20, "maxLength": 500},
         "contributions": {
           "type": "array",
           "minItems": 1,
@@ -112,300 +56,74 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "github",
-              "summary"
-            ],
+            "required": ["github", "summary"],
             "properties": {
-              "github": {
-                "type": "string",
-                "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"
-              },
-              "summary": {
-                "type": "string",
-                "minLength": 20,
-                "maxLength": 300
-              }
+              "github": {"type": "string", "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$"},
+              "summary": {"type": "string", "minLength": 20, "maxLength": 300}
             }
           }
         }
       }
     },
     "deploy": {
-      "type": "object",
-      "required": [
-        "kind"
-      ],
-      "properties": {
-        "kind": {
-          "enum": [
-            "kubernetes",
-            "pages",
-            "none"
-          ]
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "kubernetes"
-              }
-            },
-            "required": [
-              "kind"
-            ]
-          },
-          "then": {
-            "required": [
-              "host",
-              "services"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "kind": true,
-              "host": {
-                "$ref": "#/$defs/host"
-              },
-              "dependencies": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "postgres": {
-                    "$ref": "#/$defs/dependency"
-                  },
-                  "redis": {
-                    "$ref": "#/$defs/dependency"
-                  }
-                }
-              },
-              "config": {
-                "type": "object",
-                "propertyNames": {
-                  "pattern": "^[A-Z][A-Z0-9_]*$"
-                },
-                "additionalProperties": {
-                  "type": "string"
-                }
-              },
-              "secrets": {
-                "type": "array",
-                "uniqueItems": true,
-                "items": {
-                  "type": "string",
-                  "pattern": "^[A-Z][A-Z0-9_]*$"
-                }
-              },
-              "migration": {
-                "$ref": "#/$defs/migration"
-              },
-              "services": {
-                "type": "object",
-                "minProperties": 1,
-                "propertyNames": {
-                  "pattern": "^[a-z][a-z0-9-]*$"
-                },
-                "additionalProperties": {
-                  "$ref": "#/$defs/service"
-                }
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "pages"
-              }
-            },
-            "required": [
-              "kind"
-            ]
-          },
-          "then": {
-            "required": [
-              "host",
-              "source"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "kind": true,
-              "host": {
-                "$ref": "#/$defs/host"
-              },
-              "source": {
-                "type": "object",
-                "required": [
-                  "directory",
-                  "output"
-                ],
-                "additionalProperties": false,
-                "properties": {
-                  "directory": {
-                    "type": "string",
-                    "pattern": "^[a-z][a-z0-9-]*$"
-                  },
-                  "output": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "command": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "none"
-              }
-            },
-            "required": [
-              "kind"
-            ]
-          },
-          "then": {
-            "additionalProperties": false,
-            "properties": {
-              "kind": true
-            }
-          }
-        }
+      "oneOf": [
+        {"$ref": "#/$defs/composeDeploy"},
+        {"$ref": "#/$defs/pagesDeploy"},
+        {"$ref": "#/$defs/noneDeploy"}
       ]
+    },
+    "composeDeploy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "host", "source"],
+      "properties": {
+        "kind": {"const": "compose"},
+        "host": {"$ref": "#/$defs/host"},
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "service", "port"],
+          "properties": {
+            "file": {"type": "string", "pattern": "^(?!/)(?!.*[.][.])[A-Za-z0-9._/-]+[.]ya?ml$"},
+            "service": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+            "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+          }
+        },
+        "secrets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}
+        }
+      }
+    },
+    "pagesDeploy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "host", "source"],
+      "properties": {
+        "kind": {"const": "pages"},
+        "host": {"$ref": "#/$defs/host"},
+        "source": {
+          "type": "object",
+          "required": ["directory", "output"],
+          "additionalProperties": false,
+          "properties": {
+            "directory": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+            "output": {"type": "string", "minLength": 1},
+            "command": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "noneDeploy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {"kind": {"const": "none"}}
     },
     "host": {
       "type": "string",
       "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?[.]project-graphite[.]com$|^project-graphite[.]com$"
-    },
-    "dependency": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "storage"
-      ],
-      "properties": {
-        "storage": {
-          "type": "string",
-          "pattern": "^[1-9][0-9]*Gi$"
-        }
-      }
-    },
-    "migration": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "service",
-        "command"
-      ],
-      "properties": {
-        "service": {
-          "type": "string",
-          "pattern": "^[a-z][a-z0-9-]*$"
-        },
-        "command": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      }
-    },
-    "service": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "port": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 65535
-        },
-        "route": {
-          "type": "string",
-          "pattern": "^(/.*|none)$"
-        },
-        "size": {
-          "enum": [
-            "tiny",
-            "small",
-            "medium"
-          ]
-        },
-        "replicas": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 3
-        },
-        "command": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "env": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": {
-            "type": "string",
-            "pattern": "^[A-Z][A-Z0-9_]*$"
-          }
-        },
-        "health": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "readiness": {
-              "type": "string",
-              "pattern": "^/"
-            },
-            "liveness": {
-              "type": "string",
-              "pattern": "^/"
-            }
-          }
-        }
-      },
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "route": {
-                "pattern": "^/"
-              }
-            },
-            "required": [
-              "route"
-            ]
-          },
-          "then": {
-            "required": [
-              "port"
-            ]
-          }
-        },
-        {
-          "if": {
-            "required": [
-              "health"
-            ]
-          },
-          "then": {
-            "required": [
-              "port"
-            ]
-          }
-        }
-      ]
     }
   }
 }
