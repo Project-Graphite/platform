@@ -1,0 +1,73 @@
+name: Sync registry
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+concurrency:
+  group: sync-registry
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Repository manifests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - run: pip install pyyaml jsonschema
+
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.PLATFORM_APP_ID }}
+          private-key: ${{ secrets.PLATFORM_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Sync repository manifests
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python scripts/sync.py
+
+      - run: python scripts/validate.py
+
+      - name: Open registry update
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          git add projects
+          if git diff --cached --quiet; then
+            echo "Registry already current."
+            exit 0
+          fi
+
+          branch=automation/sync-project-registry
+          git config user.name "graphite-registry"
+          git config user.email "registry@project-graphite.com"
+          git fetch origin "refs/heads/${branch}:refs/remotes/origin/${branch}" || true
+          git switch -C "$branch"
+          git commit --message "chore: sync project registry"
+          gh auth setup-git
+          git push --force-with-lease origin "HEAD:${branch}"
+
+          if [ -z "$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')" ]; then
+            gh pr create \
+              --base main \
+              --head "$branch" \
+              --title "chore: sync project registry" \
+              --body "Synchronizes project metadata declared by repository-owned .graphite.yml manifests."
+          fi

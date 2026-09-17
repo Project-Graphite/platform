@@ -58,7 +58,6 @@ def person_card(person):
     return {
         "handle": person["handle"],
         "github": person["github"],
-        "githubUrl": f"https://github.com/{person['github']}",
         "name": person["name"],
         "headline": person.get("headline"),
         "bio": collapse(person["bio"]) if person.get("bio") else None,
