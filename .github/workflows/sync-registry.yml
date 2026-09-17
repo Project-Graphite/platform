@@ -58,10 +58,10 @@ jobs:
           branch=automation/sync-project-registry
           git config user.name "graphite-registry"
           git config user.email "registry@project-graphite.com"
+          gh auth setup-git
           git fetch origin "refs/heads/${branch}:refs/remotes/origin/${branch}" || true
           git switch -C "$branch"
           git commit --message "chore: sync project registry"
-          gh auth setup-git
           git push --force-with-lease origin "HEAD:${branch}"
 
           if [ -z "$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')" ]; then
