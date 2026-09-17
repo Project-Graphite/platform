@@ -12,6 +12,8 @@ Coolify, Cloudflare, or GitHub secret stores.
 `project-graphite.com/members/<handle>`.
 
 `projects/<slug>.yml` drives the Hub card, project page, public hostname, and deployment source.
+Set `parent` to another project slug when an entry belongs one level below a collection. Child
+projects share their parent's repository and appear at `/projects/<parent>/<slug>`.
 `tags/<slug>.json` records immutable service image tags published by CI.
 
 ## Deployment kinds

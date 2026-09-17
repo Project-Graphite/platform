@@ -21,8 +21,10 @@ def collapse(text):
 def project_card(project):
     host = project["deploy"].get("host")
     showcase = project.get("showcase")
+    parent = project.get("parent")
     return {
         "slug": project["slug"],
+        "parent": parent,
         "name": project["name"],
         "summary": collapse(project["summary"]),
         "tags": project.get("tags", []),
@@ -47,7 +49,7 @@ def project_card(project):
         if showcase
         else None,
         "url": f"https://{host}" if host and project["status"] == "live" else None,
-        "path": f"/projects/{project['slug']}",
+        "path": f"/projects/{parent}/{project['slug']}" if parent else f"/projects/{project['slug']}",
         "legacyPath": f"/{project['owner']}/{project['slug']}",
     }
 

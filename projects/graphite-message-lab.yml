@@ -1,26 +1,26 @@
 slug: graphite-message-lab
 name: Graphite Message Lab
 summary: >
-  An interactive message board used to validate Graphite's Django API, PostgreSQL persistence,
-  Redis queue, Celery worker, container registry and Coolify deployment path.
+  A public message form with private-by-default moderation, backed by Django, PostgreSQL, Redis and
+  Celery and deployed automatically through the Project Graphite hosting path.
 tags: [django, postgresql, redis, celery, docker]
 repo: project-graphite/graphite-message-lab
 owner: amr
 authors: [AmrMsCLL]
-status: wip
-listed: false
+status: live
+listed: true
 
 showcase:
   problem: >
-    The organisation needed a disposable application that could prove the complete deployment path
-    with a browser, API, persistent database, queue and background worker.
+    Project Graphite needed an approachable application that visitors could use while proving the
+    complete path from a browser through an API, persistent database and background worker.
   approach: >
-    A small Django message board writes messages to PostgreSQL, queues processing through Redis and
-    lets a Celery worker update each record asynchronously. CI publishes immutable web and worker
-    images for a resource-limited Docker Compose deployment on the shared Graphite VPS.
+    Visitors submit public or private messages through Django. PostgreSQL stores them, Redis and
+    Celery process them asynchronously, and moderation keeps messages private until an admin chooses
+    to publish them. Coolify redeploys the Compose application when the main branch changes.
   outcome: >
-    The lab provides one interaction that verifies routing, application health, persistence,
-    asynchronous work, image promotion, rollback and eventual cleanup without using a toy counter.
+    The live lab demonstrates routing, TLS, application health, persistence, asynchronous work,
+    administrator review and automatic deployment through one interaction visitors can understand.
   contributions:
     - github: AmrMsCLL
       summary: >

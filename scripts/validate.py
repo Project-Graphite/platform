@@ -44,7 +44,7 @@ def project_problems(path, project):
         return
 
     slug, repo = project.get("slug"), project.get("repo")
-    if slug and repo and repo.split("/")[-1].lower() != slug:
+    if slug and repo and not project.get("parent") and repo.split("/")[-1].lower() != slug:
         yield f"{path.name}: repo {repo} does not match slug {slug}"
 
     authors = {author.lower() for author in project.get("authors", [])}
@@ -70,6 +70,29 @@ def ownership_problems(projects, people):
         owner = project.get("owner") if isinstance(project, dict) else None
         if owner and owner not in handles:
             yield f"{path.name}: owner {owner} has no entry in people/"
+
+
+def hierarchy_problems(projects):
+    entries = {
+        project["slug"]: (path, project)
+        for path, project in projects
+        if isinstance(project, dict) and "slug" in project
+    }
+    for path, project in projects:
+        parent_slug = project.get("parent") if isinstance(project, dict) else None
+        if not parent_slug:
+            continue
+        if parent_slug == project.get("slug"):
+            yield f"{path.name}: project cannot contain itself"
+            continue
+        if parent_slug not in entries:
+            yield f"{path.name}: parent {parent_slug} has no project entry"
+            continue
+        _, parent = entries[parent_slug]
+        if parent.get("parent"):
+            yield f"{path.name}: parent {parent_slug} must be a top-level project"
+        if project.get("repo") != parent.get("repo"):
+            yield f"{path.name}: child project must use parent repository {parent.get('repo')}"
 
 
 def host_problems(projects):
@@ -98,6 +121,7 @@ def main():
     problems.extend(line for path, project in projects for line in project_problems(path, project))
     problems.extend(uniqueness_problems(people, "github", "github account"))
     problems.extend(ownership_problems(projects, people))
+    problems.extend(hierarchy_problems(projects))
     problems.extend(host_problems(projects))
 
     for line in problems:
