@@ -46,7 +46,7 @@ jobs:
 
       - name: Open registry update
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
           git add projects
