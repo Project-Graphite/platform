@@ -1,5 +1,6 @@
 slug: stack-switch
 parent: windhawk-mods
+kind: project
 name: StackSwitch
 summary: >
   A Windhawk taskbar launcher that starts and stops configurable working sets of applications,
@@ -9,7 +10,6 @@ repo: project-graphite/windhawk-mods
 owner: amr
 authors: [AmrMsCLL]
 status: source-only
-featured: false
 listed: true
 
 showcase:

@@ -1,4 +1,5 @@
 slug: windhawk-mods
+kind: epic
 name: Windhawk Mods
 summary: >
   A growing collection of native Windows customizations built for Windhawk, the open-source
@@ -8,7 +9,6 @@ repo: project-graphite/windhawk-mods
 owner: amr
 authors: [AmrMsCLL]
 status: source-only
-featured: true
 listed: true
 
 showcase:

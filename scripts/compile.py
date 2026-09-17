@@ -25,6 +25,7 @@ def project_card(project):
     return {
         "slug": project["slug"],
         "parent": parent,
+        "kind": project["kind"],
         "name": project["name"],
         "summary": collapse(project["summary"]),
         "tags": project.get("tags", []),
@@ -33,7 +34,6 @@ def project_card(project):
         "owner": project["owner"],
         "authors": project["authors"],
         "status": project["status"],
-        "featured": project.get("featured", False),
         "showcase": {
             "problem": collapse(showcase["problem"]),
             "approach": collapse(showcase["approach"]),
@@ -75,7 +75,7 @@ def main():
         return 1
 
     projects = [project_card(p) for p in load("projects") if p.get("listed", True)]
-    projects.sort(key=lambda entry: (not entry["featured"], entry["name"].lower()))
+    projects.sort(key=lambda entry: entry["name"].lower())
 
     people = [person_card(p) for p in load("people")]
     people.sort(key=lambda entry: entry["name"].lower())

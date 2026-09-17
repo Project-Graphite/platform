@@ -1,4 +1,5 @@
 slug: project-template
+kind: project
 name: Project template
 summary: >
   The starting point every project is created from: shared CI wiring, the compose

@@ -1,4 +1,5 @@
 slug: graphite-hub
+kind: project
 name: Graphite Hub
 summary: >
   The index of everything built in this organisation — what each project is,
@@ -8,7 +9,6 @@ repo: project-graphite/graphite-hub
 owner: amr
 authors: [AmrMsCLL]
 status: live
-featured: false
 listed: false
 
 deploy:

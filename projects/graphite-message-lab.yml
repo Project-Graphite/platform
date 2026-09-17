@@ -1,4 +1,5 @@
 slug: graphite-message-lab
+kind: project
 name: Graphite Message Lab
 summary: >
   A public message form with private-by-default moderation, backed by Django, PostgreSQL, Redis and

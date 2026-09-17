@@ -91,6 +91,10 @@ def hierarchy_problems(projects):
         _, parent = entries[parent_slug]
         if parent.get("parent"):
             yield f"{path.name}: parent {parent_slug} must be a top-level project"
+        if parent.get("kind") != "epic":
+            yield f"{path.name}: parent {parent_slug} must be an epic"
+        if project.get("kind") != "project":
+            yield f"{path.name}: an epic cannot belong to another epic"
         if project.get("repo") != parent.get("repo"):
             yield f"{path.name}: child project must use parent repository {parent.get('repo')}"
 
