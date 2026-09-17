@@ -13,8 +13,13 @@ tags:
 owner: amr
 authors:
 - AmrMsCLL
-status: wip
+status: live
 listed: true
 deploy:
-  kind: none
+  kind: pages
+  host: traceboard.project-graphite.com
+  source:
+    directory: site
+    output: dist
+    command: npm run build
 repo: project-graphite/traceboard
