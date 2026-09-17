@@ -46,7 +46,9 @@ jobs:
 
       - name: Open registry update
         env:
+          APP_AUTHOR: app/${{ steps.app-token.outputs.app-slug }}
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          WORKFLOW_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           git add projects
@@ -64,10 +66,55 @@ jobs:
           git commit --message "chore: sync project registry"
           git push --force-with-lease origin "HEAD:${branch}"
 
-          if [ -z "$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')" ]; then
+          pr="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')"
+          if [ -z "$pr" ]; then
             gh pr create \
               --base main \
               --head "$branch" \
               --title "chore: sync project registry" \
               --body "Synchronizes project metadata declared by repository-owned .graphite.yml manifests."
+            pr="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')"
           fi
+
+          author="$(gh pr view "$pr" --json author --jq '.author.login')"
+          if [ "$author" != "$APP_AUTHOR" ]; then
+            echo "::error::Registry PR #${pr} belongs to ${author}, not ${APP_AUTHOR}."
+            exit 1
+          fi
+
+          base="$(gh pr view "$pr" --json baseRefName --jq '.baseRefName')"
+          head="$(gh pr view "$pr" --json headRefName --jq '.headRefName')"
+          if [ "$base" != "main" ] || [ "$head" != "$branch" ]; then
+            echo "::error::Registry PR #${pr} does not use the expected main <- ${branch} branches."
+            exit 1
+          fi
+
+          file_count="$(gh pr view "$pr" --json files --jq '.files | length')"
+          invalid_paths="$(gh pr view "$pr" --json files --jq '[.files[].path | select(test("^projects/[^/]+\\.yml$") | not)] | join(", ")')"
+          if [ "$file_count" -eq 0 ] || [ -n "$invalid_paths" ]; then
+            echo "::error::Registry PR #${pr} changes files outside projects/*.yml: ${invalid_paths}"
+            exit 1
+          fi
+
+          head_sha="$(git rev-parse HEAD)"
+          run_id=""
+          for attempt in {1..20}; do
+            run_id="$(GH_TOKEN="$WORKFLOW_TOKEN" gh run list \
+              --workflow pr.yml \
+              --branch "$branch" \
+              --event pull_request \
+              --json databaseId,headSha \
+              --jq "map(select(.headSha == \"$head_sha\"))[0].databaseId // empty")"
+            if [ -n "$run_id" ]; then
+              break
+            fi
+            sleep 3
+          done
+
+          if [ -z "$run_id" ]; then
+            echo "::error::No PR workflow was registered for registry PR #${pr}."
+            exit 1
+          fi
+
+          GH_TOKEN="$WORKFLOW_TOKEN" gh run watch "$run_id" --exit-status
+          gh pr merge "$pr" --squash --delete-branch --match-head-commit "$head_sha"
