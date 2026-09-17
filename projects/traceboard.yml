@@ -1,0 +1,20 @@
+slug: traceboard
+kind: project
+name: Traceboard
+summary: 'A private, client-side workspace for exploring structured logs through fast filters, correlation
+  groups, timelines and focused event inspection.
+
+  '
+tags:
+- react
+- vite
+- typescript
+- observability
+owner: amr
+authors:
+- AmrMsCLL
+status: wip
+listed: true
+deploy:
+  kind: none
+repo: project-graphite/traceboard
