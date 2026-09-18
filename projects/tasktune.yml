@@ -1,0 +1,42 @@
+slug: tasktune
+parent: windhawk-mods
+kind: project
+name: TaskTune
+summary: 'A configurable Windhawk media player embedded in the Windows 11 taskbar, with media-session
+  controls, per-app volume, audio-only application support and an optional spectrum visualizer.
+
+  '
+tags:
+- cpp
+- windows
+- windhawk
+- winrt
+- audio
+owner: amr
+authors:
+- AmrMsCLL
+status: source-only
+listed: true
+showcase:
+  problem: 'Checking playback details or controlling several media and audio applications usually means
+    opening a player window or a separate volume interface and leaving the current workflow.
+
+    '
+  approach: 'The mod injects a configurable Fluent UI player into the Windows 11 taskbar, reads Windows
+    media sessions, falls back to active audio sessions, and exposes playback, session and per-application
+    volume controls beside an optional WASAPI visualizer.
+
+    '
+  outcome: 'Media status and the most common playback and volume actions remain available at a glance
+    without adding a separate background application or replacing Windows system files.
+
+    '
+  contributions:
+  - github: AmrMsCLL
+    summary: 'Designed and maintains the media-session integration, taskbar player, per-application audio
+      controls, visualizer, customization model and Project Graphite packaging.
+
+      '
+deploy:
+  kind: none
+repo: project-graphite/windhawk-mods
