@@ -2,8 +2,10 @@ name: Sync registry
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [sync-registry]
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 5 * * *"
 
 concurrency:
   group: sync-registry
