@@ -1,32 +1,20 @@
 slug: windhawk-mods
 kind: epic
 name: Windhawk Mods
-summary: >
-  A growing collection of native Windows customizations built for Windhawk, the open-source
-  marketplace and framework for modifying programs without replacing system files.
-tags: [cpp, windows, windhawk, win32]
-repo: project-graphite/windhawk-mods
+summary: 'A growing collection of native Windows customizations built for Windhawk, the open-source marketplace
+  and framework for modifying programs without replacing system files.
+
+  '
+tags:
+- cpp
+- windows
+- windhawk
+- win32
 owner: amr
-authors: [AmrMsCLL]
+authors:
+- AmrMsCLL
 status: source-only
 listed: true
-
-showcase:
-  problem: >
-    Useful Windows customizations are often distributed as opaque executables or broad system
-    replacements, making them difficult to inspect, maintain and trust across Windows updates.
-  approach: >
-    Each customization is developed as a focused Windhawk mod with its own folder, documentation
-    and reviewable C++ source. The collection favors native Windows behavior, explicit settings
-    and resilient integration points over standalone background applications.
-  outcome: >
-    Project Graphite has a maintainable home for Windows experiments where every mod can be
-    understood, installed and evolved independently while sharing consistent quality checks.
-  contributions:
-    - github: AmrMsCLL
-      summary: >
-        Designs and maintains the collection, its native Windows integrations, settings models,
-        project documentation and validation workflow.
-
 deploy:
   kind: none
+repo: project-graphite/windhawk-mods
