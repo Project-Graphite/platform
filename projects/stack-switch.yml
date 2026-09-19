@@ -7,7 +7,7 @@ summary: >
   folders, editor workspaces, URLs and terminal commands with one action.
 tags: [cpp, windows, windhawk, win32]
 repo: project-graphite/windhawk-mods
-owner: amr
+owner: amrmscll
 authors: [AmrMsCLL]
 status: source-only
 listed: true

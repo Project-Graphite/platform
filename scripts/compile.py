@@ -22,6 +22,8 @@ def project_card(project):
     host = project["deploy"].get("host")
     showcase = project.get("showcase")
     parent = project.get("parent")
+    section = "epics" if project["kind"] == "epic" or parent else "projects"
+    slug_path = f"{parent}/{project['slug']}" if parent else project["slug"]
     return {
         "slug": project["slug"],
         "parent": parent,
@@ -49,7 +51,7 @@ def project_card(project):
         if showcase
         else None,
         "url": f"https://{host}" if host and project["status"] == "live" else None,
-        "path": f"/projects/{parent}/{project['slug']}" if parent else f"/projects/{project['slug']}",
+        "path": f"/{section}/{slug_path}",
         "legacyPath": f"/{project['owner']}/{project['slug']}",
     }
 
@@ -79,9 +81,9 @@ def main():
     people = [person_card(p) for p in load("people")]
     people.sort(key=lambda entry: entry["name"].lower())
 
-    registry = {"people": people, "projects": projects}
+    registry = {"members": people, "projects": projects}
     pathlib.Path(sys.argv[1]).write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
-    print(f"Compiled {len(people)} people and {len(projects)} projects to {sys.argv[1]}.")
+    print(f"Compiled {len(people)} members and {len(projects)} projects to {sys.argv[1]}.")
     return 0
 
 

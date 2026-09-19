@@ -6,7 +6,7 @@ summary: >
   Celery and deployed automatically through the Project Graphite hosting path.
 tags: [django, postgresql, redis, celery, docker]
 repo: project-graphite/graphite-message-lab
-owner: amr
+owner: amrmscll
 authors: [AmrMsCLL]
 status: live
 listed: true

@@ -6,7 +6,7 @@ summary: >
   setup and the service convention.
 tags: [github-actions, docker]
 repo: project-graphite/project-template
-owner: amr
+owner: amrmscll
 authors: [AmrMsCLL]
 status: source-only
 listed: false
