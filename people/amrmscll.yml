@@ -1,12 +1,11 @@
 handle: amrmscll
 github: AmrMsCLL
 name: Amr El-Sheraey
-headline: Full-stack engineer in Cairo
+headline: Full-stack Software Engineer 
 bio: >
   Computer Science and AI graduate of FCAI, Cairo University, building document-intelligence
-  software at Syntheia. A normal week touches a TypeScript API, a React front end, a Python ML
-  service and a Helm chart. Most useful where those meet, and most interested in whichever part
-  I have not done before.
+  software at Syntheia. A normal week touches a TypeScript API, a React front end, a Python ML service and a Helm chart. Most useful where those meet, and most interested in whichever part I have not done before.
+  Currently building document intelligence software at Syntheia.
 stack:
   - group: languages
     items: [TypeScript, JavaScript, Python, C++, SQL]
