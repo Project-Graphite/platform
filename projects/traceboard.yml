@@ -1,8 +1,8 @@
 slug: traceboard
 kind: project
 name: Traceboard
-summary: 'A private, client-side workspace for exploring structured logs through fast filters, correlation
-  groups, timelines and focused event inspection.
+summary: 'A client-side workspace for exploring structured logs through fast filters, correlation groups,
+  timelines and focused event inspection.
 
   '
 tags:
