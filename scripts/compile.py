@@ -52,7 +52,6 @@ def project_card(project):
         else None,
         "url": f"https://{host}" if host and project["status"] == "live" else None,
         "path": f"/{section}/{slug_path}",
-        "legacyPath": f"/{project['owner']}/{project['slug']}",
     }
 
 
@@ -66,7 +65,6 @@ def person_card(person):
         "stack": person.get("stack", []),
         "links": person.get("links", []),
         "path": f"/members/{person['handle']}",
-        "legacyPath": f"/{person['handle']}",
     }
 
 
