@@ -58,9 +58,10 @@ def uniqueness_problems(entries, field, label):
         value = entry.get(field) if isinstance(entry, dict) else None
         if not value:
             continue
-        if value in claimed:
-            yield f"{path.name}: {label} {value} is already claimed by {claimed[value]}"
-        claimed[value] = path.name
+        key = str(value).lower()
+        if key in claimed:
+            yield f"{path.name}: {label} {value} is already claimed by {claimed[key]}"
+        claimed[key] = path.name
 
 
 def ownership_problems(projects, people):
