@@ -65,12 +65,15 @@ def load_projects():
 def sync():
     existing = load_projects()
     seen = {}
+    synced = set()
     changed = []
 
     for repository in repositories():
         source = manifest(repository["name"])
         if source is None:
             continue
+        repo = f"project-graphite/{repository['name']}"
+        synced.add(repo)
         entries = source.get("projects") if isinstance(source, dict) else None
         if not isinstance(entries, list) or not entries:
             raise ValueError(f"{repository['name']}: .graphite.yml must contain a non-empty projects list")
@@ -78,7 +81,7 @@ def sync():
         for entry in entries:
             if not isinstance(entry, dict) or not isinstance(entry.get("slug"), str):
                 raise ValueError(f"{repository['name']}: every project needs a slug")
-            project = {**entry, "repo": f"project-graphite/{repository['name']}"}
+            project = {**entry, "repo": repo}
             slug = project["slug"]
             if slug in seen:
                 raise ValueError(f"{slug}: also declared by {seen[slug]}")
@@ -89,6 +92,11 @@ def sync():
                 yaml.safe_dump(project, sort_keys=False, allow_unicode=True, width=100),
                 encoding="utf-8",
             )
+            changed.append(slug)
+
+    for slug, project in existing.items():
+        if slug not in seen and project.get("repo") in synced:
+            (ROOT / "projects" / f"{slug}.yml").unlink()
             changed.append(slug)
 
     if changed:
