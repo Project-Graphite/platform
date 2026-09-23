@@ -12,8 +12,8 @@ Coolify, Cloudflare, or GitHub secret stores.
 `project-graphite.com/members/<handle>`.
 
 `projects/<slug>.yml` drives the Hub card, project page, public hostname, and deployment source.
-Set `parent` to another project slug when an entry belongs one level below a collection. Child
-projects share their parent's repository and appear at `/projects/<parent>/<slug>`.
+Set `parent` to the slug of an epic (`kind: epic`) when an entry belongs to it. Child projects
+share their epic's repository and appear at `/epics/<parent>/<slug>`.
 `tags/<slug>.json` records immutable service image tags published by CI.
 
 ## Deployment kinds
@@ -69,7 +69,9 @@ deploy:
 
 1. Create a repository from `project-template`.
 2. Add a Dockerfile for each deployable service and a production Compose file.
-3. Add and review `projects/<slug>.yml` here.
+3. In the new repository's `.graphite.yml`, replace the `project-template` entry with this
+   project's slug and metadata. The Sync registry workflow writes `projects/<slug>.yml` here and
+   merges it once the PR checks pass.
 4. Merge the project image build and let CI record immutable tags in `tags/<slug>.json`.
 5. Add the repository to Coolify, enter its declared secrets, and review the deployment before
    selecting Deploy.
