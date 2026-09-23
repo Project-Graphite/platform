@@ -2,32 +2,40 @@ slug: stack-switch
 parent: windhawk-mods
 kind: project
 name: StackSwitch
-summary: >
-  A Windhawk taskbar launcher that starts and stops configurable working sets of applications,
+summary: 'A Windhawk taskbar launcher that starts and stops configurable working sets of applications,
   folders, editor workspaces, URLs and terminal commands with one action.
-tags: [cpp, windows, windhawk, win32]
-repo: project-graphite/windhawk-mods
+
+  '
+tags:
+- cpp
+- windows
+- windhawk
+- win32
 owner: amrmscll
-authors: [AmrMsCLL]
+authors:
+- AmrMsCLL
 status: source-only
 listed: true
-
 showcase:
-  problem: >
-    A development session can mean opening the same mix of applications, workspaces, folders,
+  problem: 'A development session can mean opening the same mix of applications, workspaces, folders,
     URLs and terminal commands, then finding and closing them all again in the right order.
-  approach: >
-    StackSwitch adds a native taskbar panel with persistent selections, named profiles, grouped
-    items, launch delays and wait-for-exit behavior. It closes the same selection in reverse order
-    and avoids fragile Windows symbol resolution by using a layered child window.
-  outcome: >
-    One taskbar action can start or stop a repeatable working environment while optional tools stay
-    disabled until needed, and the integration remains resilient across Windows updates.
-  contributions:
-    - github: AmrMsCLL
-      summary: >
-        Designed and implemented the Win32 taskbar integration, configuration model, process
-        orchestration, profiles, persisted selections and user-facing launcher panel.
 
+    '
+  approach: 'StackSwitch adds a native taskbar panel with persistent selections, named profiles, grouped
+    items, launch delays and wait-for-exit behavior. It closes the same selection in reverse order and
+    avoids fragile Windows symbol resolution by using a layered child window.
+
+    '
+  outcome: 'One taskbar action can start or stop a repeatable working environment while optional tools
+    stay disabled until needed.
+
+    '
+  contributions:
+  - github: AmrMsCLL
+    summary: 'Designed and implemented the Win32 taskbar integration, configuration model, process orchestration,
+      profiles, persisted selections and user-facing launcher panel.
+
+      '
 deploy:
   kind: none
+repo: project-graphite/windhawk-mods

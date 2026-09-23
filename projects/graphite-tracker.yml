@@ -1,0 +1,21 @@
+slug: graphite-tracker
+kind: project
+name: Graphite Tracker
+summary: 'A universal entertainment tracker for movies, television, anime, manga, manhwa and games.
+
+  '
+tags:
+- react
+- nestjs
+- prisma
+- postgresql
+- tmdb
+- rawg
+owner: amrmscll
+authors:
+- AmrMsCLL
+status: wip
+listed: false
+deploy:
+  kind: none
+repo: project-graphite/graphite-tracker

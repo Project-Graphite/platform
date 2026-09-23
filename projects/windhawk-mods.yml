@@ -1,8 +1,7 @@
 slug: windhawk-mods
 kind: epic
 name: Windhawk Mods
-summary: 'A growing collection of native Windows customizations built for Windhawk, the open-source marketplace
-  and framework for modifying programs without replacing system files.
+summary: 'Windhawk mods that add a launcher and a media player to the Windows 11 taskbar.
 
   '
 tags:
