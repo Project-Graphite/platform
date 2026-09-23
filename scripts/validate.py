@@ -9,8 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 
 def validator_for(name):
-    schema = json.loads((ROOT / "schema" / name).read_text(encoding="utf-8"))
-    return jsonschema.Draft202012Validator(schema)
+    return jsonschema.Draft202012Validator(json.loads((ROOT / "schema" / name).read_text(encoding="utf-8")))
 
 
 PROJECT = validator_for("project.schema.json")
@@ -52,10 +51,10 @@ def project_problems(path, project):
         if contribution["github"].lower() not in authors:
             yield f"{path.name}: showcase contributor {contribution['github']} is not listed in authors"
 
-def uniqueness_problems(entries, field, label):
+def uniqueness_problems(entries, value_of, label):
     claimed = {}
     for path, entry in entries:
-        value = entry.get(field) if isinstance(entry, dict) else None
+        value = value_of(entry)
         if not value:
             continue
         key = str(value).lower()
@@ -99,17 +98,6 @@ def hierarchy_problems(projects):
             yield f"{path.name}: child project must use parent repository {parent.get('repo')}"
 
 
-def host_problems(projects):
-    claimed = {}
-    for path, project in projects:
-        host = project["deploy"].get("host") if PROJECT.is_valid(project) else None
-        if not host:
-            continue
-        if host in claimed:
-            yield f"{path.name}: host {host} is already claimed by {claimed[host]}"
-        claimed[host] = path.name
-
-
 def main():
     projects = load("projects")
     people = load("people")
@@ -123,10 +111,22 @@ def main():
 
     problems = [line for path, person in people for line in schema_problems(PERSON, path, person, "handle")]
     problems.extend(line for path, project in projects for line in project_problems(path, project))
-    problems.extend(uniqueness_problems(people, "github", "github account"))
+    problems.extend(
+        uniqueness_problems(
+            people,
+            lambda person: person.get("github") if isinstance(person, dict) else None,
+            "github account",
+        )
+    )
     problems.extend(ownership_problems(projects, people))
     problems.extend(hierarchy_problems(projects))
-    problems.extend(host_problems(projects))
+    problems.extend(
+        uniqueness_problems(
+            projects,
+            lambda project: project["deploy"].get("host") if PROJECT.is_valid(project) else None,
+            "host",
+        )
+    )
 
     for line in problems:
         print(f"error: {line}", file=sys.stderr)

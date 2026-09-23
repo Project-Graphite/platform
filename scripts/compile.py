@@ -79,8 +79,9 @@ def main():
     people = [person_card(p) for p in load("people")]
     people.sort(key=lambda entry: entry["name"].lower())
 
-    registry = {"members": people, "projects": projects}
-    pathlib.Path(sys.argv[1]).write_text(json.dumps(registry, indent=2) + "\n", encoding="utf-8")
+    pathlib.Path(sys.argv[1]).write_text(
+        json.dumps({"members": people, "projects": projects}, indent=2) + "\n", encoding="utf-8"
+    )
     print(f"Compiled {len(people)} members and {len(projects)} projects to {sys.argv[1]}.")
     return 0
 
