@@ -40,18 +40,17 @@ def schema_problems(validator, path, entry, key):
 def project_problems(path, project):
     yield from schema_problems(PROJECT, path, project, "slug")
 
-    if not isinstance(project, dict):
+    if not PROJECT.is_valid(project):
         return
 
-    slug, repo = project.get("slug"), project.get("repo")
-    if slug and repo and not project.get("parent") and repo.split("/")[-1].lower() != slug:
+    slug, repo = project["slug"], project["repo"]
+    if not project.get("parent") and repo.split("/")[-1].lower() != slug:
         yield f"{path.name}: repo {repo} does not match slug {slug}"
 
-    authors = {author.lower() for author in project.get("authors", [])}
+    authors = {author.lower() for author in project["authors"]}
     for contribution in project.get("showcase", {}).get("contributions", []):
-        github = contribution.get("github") if isinstance(contribution, dict) else None
-        if github and github.lower() not in authors:
-            yield f"{path.name}: showcase contributor {github} is not listed in authors"
+        if contribution["github"].lower() not in authors:
+            yield f"{path.name}: showcase contributor {contribution['github']} is not listed in authors"
 
 def uniqueness_problems(entries, field, label):
     claimed = {}
@@ -102,7 +101,7 @@ def hierarchy_problems(projects):
 def host_problems(projects):
     claimed = {}
     for path, project in projects:
-        host = project.get("deploy", {}).get("host") if isinstance(project, dict) else None
+        host = project["deploy"].get("host") if PROJECT.is_valid(project) else None
         if not host:
             continue
         if host in claimed:
