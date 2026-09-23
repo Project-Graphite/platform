@@ -1,7 +1,6 @@
 import json
 import os
 import pathlib
-import sys
 import urllib.error
 import urllib.request
 
@@ -106,8 +105,4 @@ def sync():
 
 
 if __name__ == "__main__":
-    try:
-        sync()
-    except (OSError, RuntimeError, ValueError, yaml.YAMLError) as error:
-        print(error, file=sys.stderr)
-        sys.exit(1)
+    sync()
