@@ -1,7 +1,29 @@
 handle: bluocaroot
 github: BluoCaroot
 name: Assem Amr Abdelfattah
-headline: Software engineering intern at Syntheia
+headline: Software Engineer at Syntheia
+bio: >
+  Software engineer from Egypt, building document-intelligence software at Syntheia: a NestJS
+  API, a React portal and an Outlook add-in on Office.js. Came up through competitive programming,
+  which still shapes how I approach problems, and outside work I build tools like Digital to
+  Physical to learn the parts of the stack I have not touched yet.
+stack:
+  - group: languages
+    items: [TypeScript, JavaScript, C++, Python, C, SQL]
+  - group: backend
+    items: [NestJS, Node.js, Express, GraphQL]
+  - group: frontend
+    items: [React, MUI, Tailwind, Vite, Office.js]
+  - group: data
+    items: [PostgreSQL, MongoDB]
+  - group: platform
+    items: [Docker, Azure, Linux, Git]
+  - group: testing
+    items: [Jest, SonarQube]
 links:
   - label: github
     url: https://github.com/BluoCaroot
+  - label: linkedin
+    url: https://www.linkedin.com/in/assem-amr-abdelfattah/
+  - label: codeforces
+    url: https://codeforces.com/profile/BluoCaroot
