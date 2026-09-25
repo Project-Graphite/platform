@@ -115,6 +115,21 @@ def report(name, problems):
         print(f"error: {name}: {line}", file=sys.stderr)
 
 
+def check(name, path):
+    _, problems = apply(
+        name,
+        pathlib.Path(path).read_text(encoding="utf-8"),
+        registry(),
+        {repository["name"].lower() for repository in repositories()},
+        validate.load("people"),
+    )
+    report(name, problems)
+    if problems:
+        return 1
+    print(f"{path} is a valid manifest for {name}.")
+    return 0
+
+
 def sync():
     existing = registry()
     projects = existing
@@ -159,5 +174,14 @@ def sync():
     return 0
 
 
+def main():
+    if len(sys.argv) == 1:
+        return sync()
+    if len(sys.argv) == 3:
+        return check(*sys.argv[1:])
+    print("usage: sync.py [<repository> <manifest-path>]", file=sys.stderr)
+    return 1
+
+
 if __name__ == "__main__":
-    sys.exit(sync())
+    sys.exit(main())
