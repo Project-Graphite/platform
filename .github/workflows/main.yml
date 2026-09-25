@@ -9,6 +9,10 @@ on:
       - schema/**
       - scripts/**
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     name: Publish registry
