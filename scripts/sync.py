@@ -1,6 +1,7 @@
 import json
 import os
 import pathlib
+import re
 import urllib.error
 import urllib.request
 
@@ -8,6 +9,7 @@ import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ORGANIZATION = "Project-Graphite"
+SLUG = json.loads((ROOT / "schema" / "project.schema.json").read_text(encoding="utf-8"))["properties"]["slug"]["pattern"]
 
 
 def request(path, accept="application/vnd.github+json"):
@@ -80,6 +82,8 @@ def sync():
         for entry in entries:
             if not isinstance(entry, dict) or not isinstance(entry.get("slug"), str):
                 raise ValueError(f"{repository['name']}: every project needs a slug")
+            if not re.fullmatch(SLUG, entry["slug"]):
+                raise ValueError(f"{repository['name']}: {entry['slug']!r} is not a valid slug")
             project = {**entry, "repo": repo}
             slug = project["slug"]
             if slug in seen:
