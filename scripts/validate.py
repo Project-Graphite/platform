@@ -64,10 +64,14 @@ def uniqueness_problems(entries, value_of, label):
 
 
 def ownership_problems(projects, people):
-    handles = {person["handle"] for _, person in people if isinstance(person, dict) and "handle" in person}
+    handles = {
+        person["handle"]
+        for _, person in people
+        if isinstance(person, dict) and isinstance(person.get("handle"), str)
+    }
     for path, project in projects:
         owner = project.get("owner") if isinstance(project, dict) else None
-        if owner and owner not in handles:
+        if owner and isinstance(owner, str) and owner not in handles:
             yield f"{path.name}: owner {owner} has no entry in people/"
 
 
@@ -75,11 +79,11 @@ def hierarchy_problems(projects):
     entries = {
         project["slug"]: (path, project)
         for path, project in projects
-        if isinstance(project, dict) and "slug" in project
+        if isinstance(project, dict) and isinstance(project.get("slug"), str)
     }
     for path, project in projects:
         parent_slug = project.get("parent") if isinstance(project, dict) else None
-        if not parent_slug:
+        if not parent_slug or not isinstance(parent_slug, str):
             continue
         if parent_slug == project.get("slug"):
             yield f"{path.name}: project cannot contain itself"
