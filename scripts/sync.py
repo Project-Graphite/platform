@@ -66,7 +66,7 @@ def entries(projects):
     return [(ROOT / "projects" / f"{slug}.yml", project) for slug, project in sorted(projects.items())]
 
 
-def apply(name, text, projects, people):
+def apply(name, text, projects, organisation, people):
     try:
         source = yaml.safe_load(text)
     except yaml.YAMLError as error:
@@ -89,6 +89,15 @@ def apply(name, text, projects, people):
         else:
             candidates[entry["slug"]] = {**entry, "repo": repo}
 
+    for slug in candidates:
+        claimant = projects[slug].get("repo") if isinstance(projects.get(slug), dict) else None
+        if (
+            isinstance(claimant, str)
+            and claimant.lower() != repo.lower()
+            and claimant.split("/")[-1].lower() in organisation
+        ):
+            problems.append(f"{slug} is registered to {claimant}; choose a slug no other repository uses")
+
     updated = {
         slug: project
         for slug, project in projects.items()
@@ -110,13 +119,15 @@ def sync():
     existing = registry()
     projects = existing
     people = validate.load("people")
+    listed = list(repositories())
+    organisation = {repository["name"].lower() for repository in listed}
     skipped = []
 
-    for repository in repositories():
+    for repository in listed:
         text = manifest(repository["name"])
         if text is None:
             continue
-        updated, problems = apply(repository["name"], text, projects, people)
+        updated, problems = apply(repository["name"], text, projects, organisation, people)
         if problems:
             report(repository["name"], problems)
             skipped.append(repository["name"])
