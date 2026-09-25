@@ -102,17 +102,7 @@ def hierarchy_problems(projects):
             yield f"{path.name}: child project must use parent repository {parent.get('repo')}"
 
 
-def main():
-    projects = load("projects")
-    people = load("people")
-
-    if not projects:
-        print("No registry entries in projects/.", file=sys.stderr)
-        return 1
-    if not people:
-        print("No entries in people/.", file=sys.stderr)
-        return 1
-
+def registry_problems(projects, people):
     problems = [line for path, person in people for line in schema_problems(PERSON, path, person, "handle")]
     problems.extend(line for path, project in projects for line in project_problems(path, project))
     problems.extend(
@@ -131,7 +121,21 @@ def main():
             "host",
         )
     )
+    return problems
 
+
+def main():
+    projects = load("projects")
+    people = load("people")
+
+    if not projects:
+        print("No registry entries in projects/.", file=sys.stderr)
+        return 1
+    if not people:
+        print("No entries in people/.", file=sys.stderr)
+        return 1
+
+    problems = registry_problems(projects, people)
     for line in problems:
         print(f"error: {line}", file=sys.stderr)
 
