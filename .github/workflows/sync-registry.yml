@@ -40,6 +40,8 @@ jobs:
           owner: ${{ github.repository_owner }}
 
       - name: Sync repository manifests
+        id: sync
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: python scripts/sync.py
@@ -120,3 +122,9 @@ jobs:
 
           GH_TOKEN="$WORKFLOW_TOKEN" gh run watch "$run_id" --exit-status
           gh pr merge "$pr" --squash --delete-branch --match-head-commit "$head_sha"
+
+      - name: Report skipped manifests
+        if: steps.sync.outcome == 'failure'
+        run: |
+          echo "::error::The sync skipped invalid repository manifests or failed; see the Sync repository manifests step."
+          exit 1
