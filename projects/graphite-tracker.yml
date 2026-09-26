@@ -15,7 +15,12 @@ owner: amrmscll
 authors:
 - AmrMsCLL
 status: wip
-listed: false
+listed: true
 deploy:
-  kind: none
+  kind: compose
+  host: graphite-tracker.project-graphite.com
+  source:
+    file: compose.production.yaml
+    service: server
+    port: 3000
 repo: project-graphite/graphite-tracker
