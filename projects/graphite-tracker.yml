@@ -14,8 +14,29 @@ tags:
 owner: amrmscll
 authors:
 - AmrMsCLL
-status: wip
+status: live
 listed: true
+showcase:
+  problem: 'Films, series, anime, manga and games are usually tracked in separate apps, so a reader''s
+    progress, ratings and upcoming releases end up split across several services.
+
+    '
+  approach: 'One NestJS API pulls TMDB, MangaDex and IGDB or RAWG data into a shared catalogue and a library
+    with per-category progress. Readers import Mihon and AniYomi backups, rate and review finished titles,
+    and get in-app and email alerts for new episodes, chapters and releases. Adult content stays filtered
+    unless a reader opts in.
+
+    '
+  outcome: 'A live, phone-ready tracker where one account holds every category''s library, progress, reviews
+    and release alerts, behind a public or private profile and administrator moderation.
+
+    '
+  contributions:
+  - github: AmrMsCLL
+    summary: 'Designed and built the NestJS API, Prisma data model, React frontend, source integrations,
+      backup import, release notifications and moderation, and owns the CI and Coolify deployment.
+
+      '
 deploy:
   kind: compose
   host: graphite-tracker.project-graphite.com
