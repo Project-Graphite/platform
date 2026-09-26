@@ -14,7 +14,7 @@ owner: amrmscll
 authors:
 - AmrMsCLL
 status: live
-listed: true
+listed: false
 deploy:
   kind: pages
   host: traceboard.project-graphite.com
