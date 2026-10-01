@@ -36,32 +36,28 @@ jobs:
           client-id: ${{ secrets.PLATFORM_APP_CLIENT_ID }}
           private-key: ${{ secrets.PLATFORM_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: graphite-hub,graphite-changelog
+          repositories: graphite-hub
 
-      - name: Sync to Graphite Hub and Graphite Changelog
+      - name: Sync to Graphite Hub
         env:
           TOKEN: ${{ steps.app-token.outputs.token }}
           OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
 
-          for target in graphite-hub graphite-changelog; do
-            git clone --quiet --depth 1 "https://x-access-token:${TOKEN}@github.com/${OWNER}/${target}.git" "/tmp/${target}"
-            install -D registry.json "/tmp/${target}/site/src/data/registry.json"
+          git clone --quiet --depth 1 "https://x-access-token:${TOKEN}@github.com/${OWNER}/graphite-hub.git" /tmp/graphite-hub
+          install -D registry.json /tmp/graphite-hub/site/src/data/registry.json
 
-            (
-              cd "/tmp/${target}"
-              git config user.name "graphite-registry"
-              git config user.email "registry@project-graphite.com"
-              git add site/src/data/registry.json
+          cd /tmp/graphite-hub
+          git config user.name "graphite-registry"
+          git config user.email "registry@project-graphite.com"
+          git add site/src/data/registry.json
 
-              if git diff --cached --quiet; then
-                echo "Registry unchanged; ${target} already current."
-                exit 0
-              fi
+          if git diff --cached --quiet; then
+            echo "Registry unchanged; Graphite Hub already current."
+            exit 0
+          fi
 
-              git commit --message "chore: sync registry from platform@${GITHUB_SHA::7}"
-              git push
-              echo "${target} updated."
-            )
-          done
+          git commit --message "chore: sync registry from platform@${GITHUB_SHA::7}"
+          git push
+          echo "Graphite Hub updated."
