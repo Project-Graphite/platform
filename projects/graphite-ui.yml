@@ -1,0 +1,19 @@
+slug: graphite-ui
+kind: project
+name: Graphite UI
+summary: 'The shared Project Graphite design tokens, dark theme and React components used by every Graphite
+  web app.
+
+  '
+tags:
+- react
+- typescript
+- tailwind
+owner: amrmscll
+authors:
+- AmrMsCLL
+status: wip
+listed: true
+deploy:
+  kind: none
+repo: project-graphite/graphite-ui
