@@ -36,16 +36,16 @@ jobs:
           client-id: ${{ secrets.PLATFORM_APP_CLIENT_ID }}
           private-key: ${{ secrets.PLATFORM_APP_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
-          repositories: graphite-hub,changelog
+          repositories: graphite-hub,graphite-changelog
 
-      - name: Sync to Graphite Hub and Changelog
+      - name: Sync to Graphite Hub and Graphite Changelog
         env:
           TOKEN: ${{ steps.app-token.outputs.token }}
           OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
 
-          for target in graphite-hub changelog; do
+          for target in graphite-hub graphite-changelog; do
             git clone --quiet --depth 1 "https://x-access-token:${TOKEN}@github.com/${OWNER}/${target}.git" "/tmp/${target}"
             install -D registry.json "/tmp/${target}/site/src/data/registry.json"
 
