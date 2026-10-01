@@ -1,0 +1,31 @@
+slug: strata
+kind: project
+name: Strata
+summary: 'A personal workspace for your dashboard, agenda, notes, whiteboards, subscriptions and files.
+
+  '
+tags:
+- react
+- nestjs
+- prisma
+- postgresql
+- redis
+- typescript
+owner: amrmscll
+authors:
+- AmrMsCLL
+status: wip
+listed: true
+deploy:
+  kind: compose
+  host: strata.project-graphite.com
+  source:
+    file: compose.production.yaml
+    service: app
+    port: 3000
+  secrets:
+  - POSTGRES_PASSWORD
+  - REDIS_PASSWORD
+  - AUTH_ACCESS_TOKEN_SECRET
+  - EMAIL_HOST_PASSWORD
+repo: project-graphite/strata
