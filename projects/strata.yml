@@ -14,7 +14,7 @@ tags:
 owner: amrmscll
 authors:
 - AmrMsCLL
-status: wip
+status: live
 listed: true
 deploy:
   kind: compose
