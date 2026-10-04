@@ -36,6 +36,8 @@ def project_card(project):
         "owner": project["owner"],
         "authors": project["authors"],
         "status": project["status"],
+        "paths": project.get("paths", []),
+        "releases": project.get("releases", "auto"),
         "showcase": {
             "problem": collapse(showcase["problem"]),
             "approach": collapse(showcase["approach"]),
