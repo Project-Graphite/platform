@@ -16,6 +16,8 @@ authors:
 - AmrMsCLL
 status: source-only
 listed: true
+paths:
+- mods/stack-switch
 showcase:
   problem: 'A development session can mean opening the same mix of applications, workspaces, folders,
     URLs and terminal commands, then finding and closing them all again in the right order.

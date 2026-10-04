@@ -17,6 +17,8 @@ authors:
 - AmrMsCLL
 status: source-only
 listed: true
+paths:
+- mods/tasktune
 showcase:
   problem: 'Checking playback details or controlling several media and audio applications usually means
     opening a player window or a separate volume interface and leaving the current workflow.
