@@ -42,6 +42,17 @@
       "type": "boolean",
       "description": "Show this entry on the portfolio. Platform pieces set it to false."
     },
+    "paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^(?!/)(?!.*[.][.])[A-Za-z0-9._/-]+$"},
+      "description": "Repository folders that belong to this project. The changelog records commits touching them; set it for each project inside an epic so its versions can be cut automatically."
+    },
+    "releases": {
+      "enum": ["auto", "manual"],
+      "description": "auto (default): the daily changelog sync tags a new version when user-facing commits land. manual: only version tags pushed by people are recorded."
+    },
     "showcase": {"$ref": "#/$defs/showcase"},
     "deploy": {"$ref": "#/$defs/deploy"}
   },
