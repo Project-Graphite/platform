@@ -1,0 +1,57 @@
+slug: pixelpocket
+kind: project
+name: PixelPocket
+summary: 'Play Game Boy games in your browser. A custom C++ Game Boy emulator compiled to WebAssembly,
+  with a React frontend and a Node.js API.
+
+  '
+tags:
+- c++
+- webassembly
+- emulator
+- react
+- nodejs
+- docker
+owner: omar-mohamed24
+authors:
+- Omar-Mohamed24
+status: live
+listed: true
+showcase:
+  problem: 'Playing Game Boy games usually means installing and configuring a desktop emulator, and save
+    files stay stuck on the machine they were made on. There was no simple way to pick a game from a library,
+    play it in the browser on any device and keep the same progress.
+
+    '
+  approach: 'A Game Boy (DMG) emulator written from scratch in C++20 (CPU, graphics, sound, timers and
+    MBC1/MBC3/MBC5 cartridges), compiled to WebAssembly with Emscripten and run inside a React app with
+    Web Audio sound and keyboard, gamepad and touch input. An Express API on MongoDB and MinIO handles
+    accounts, the game library, uploads and battery saves, checking ROM headers and re-encoding cover
+    images before storing them. Docker Compose runs the stack.
+
+    '
+  outcome: 'Visitors pick a game and play it right on the page, with no install and no server round-trip
+    during play, and signed-in players'' saves follow them to any device. The core passes all 11 of Blargg''s
+    cpu_instrs tests and renders dmg-acid2 correctly.
+
+    '
+  contributions:
+  - github: Omar-Mohamed24
+    summary: 'Built the whole platform: the C++ emulator core and its WebAssembly build, the React frontend,
+      the Express API with its storage, and the Docker Compose deployment.
+
+      '
+deploy:
+  kind: compose
+  host: pixelpocket.project-graphite.com
+  source:
+    file: compose.production.yaml
+    service: frontend
+    port: 80
+  secrets:
+  - MONGO_PASSWORD
+  - MINIO_ROOT_PASSWORD
+  - S3_SECRET_KEY
+  - JWT_SECRET
+  - EMAIL_PASSWORD
+repo: project-graphite/pixelpocket
