@@ -40,15 +40,4 @@ showcase:
 deploy:
   kind: compose
   host: graphite-tracker.project-graphite.com
-  source:
-    file: compose.production.yaml
-    service: server
-    port: 3000
-  secrets:
-  - POSTGRES_PASSWORD
-  - AUTH_ACCESS_TOKEN_SECRET
-  - EMAIL_HOST_PASSWORD
-  - TMDB_READ_ACCESS_TOKEN
-  - IGDB_CLIENT_SECRET
-  - RAWG_API_KEY
 repo: project-graphite/graphite-tracker

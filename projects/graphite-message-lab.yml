@@ -31,8 +31,3 @@ showcase:
 deploy:
   kind: compose
   host: message-lab.project-graphite.com
-  source:
-    file: compose.production.yaml
-    service: web
-    port: 8000
-  secrets: [SECRET_KEY, POSTGRES_PASSWORD]

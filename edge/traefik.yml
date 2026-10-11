@@ -1,0 +1,19 @@
+entryPoints:
+  web:
+    address: ":80"
+    forwardedHeaders:
+      insecure: true
+
+providers:
+  file:
+    directory: /etc/traefik/routes
+    watch: true
+
+experimental:
+  plugins:
+    sablier:
+      moduleName: github.com/sablierapp/sablier-traefik-plugin
+      version: v1.3.0
+
+log:
+  level: INFO

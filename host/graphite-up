@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+name=$1
+cd "/srv/graphite/$name"
+touch secrets.env
+chmod 600 secrets.env
+docker compose -p "$name" --env-file secrets.env up -d --wait --wait-timeout 300 --remove-orphans
+
+if [ -f sleep ]; then
+  curl -fsS -o /dev/null --max-time 90 \
+    "http://127.0.0.1:10000/api/strategies/blocking?group=$name&session_duration=$(cat sleep)&timeout=1m"
+fi

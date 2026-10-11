@@ -1,0 +1,110 @@
+{{- $values := .Values -}}
+{{- $conditions := dict "healthy" "service_healthy" "started" "service_started" "completed" "service_completed_successfully" -}}
+{{- $volumes := dict -}}
+{{- $configs := list -}}
+{{- $public := include "core.public" . | fromJson -}}
+name: {{ $values.slug }}
+
+services:
+{{- range $name, $service := $values.services }}
+  {{ $name }}:
+    image: {{ include "core.image" (dict "name" $name "service" $service "tags" $values.tags) }}
+    {{- with $service.entrypoint }}
+    entrypoint: {{ toRawJson . }}
+    {{- end }}
+    {{- with $service.command }}
+    command: {{ toRawJson . }}
+    {{- end }}
+    {{- with $service.env }}
+    environment:
+      {{- range $key, $value := . }}
+      {{ $key }}: {{ toString $value | toRawJson }}
+      {{- end }}
+    {{- end }}
+    {{- with $service.dependsOn }}
+    depends_on:
+      {{- range $dependency, $state := . }}
+      {{ $dependency }}:
+        condition: {{ get $conditions $state }}
+      {{- end }}
+    {{- end }}
+    {{- with $service.port }}
+    expose:
+      - {{ toString . | toRawJson }}
+    {{- end }}
+    {{- if $service.public }}
+    networks:
+      default: {}
+      edge:
+        aliases: [{{ $values.slug }}]
+    {{- end }}
+    {{- with $service.volumes }}
+    volumes:
+      {{- range . }}
+      - {{ toRawJson . }}
+      {{- $volume := first (splitList ":" .) }}
+      {{- if regexMatch "^[A-Za-z0-9][A-Za-z0-9_.-]*$" $volume }}{{ $_ := set $volumes $volume true }}{{ end }}
+      {{- end }}
+    {{- end }}
+    {{- with $service.files }}
+    configs:
+      {{- range $target, $content := . }}
+      {{- $config := printf "%s-%s" $name (base $target | replace "." "-") }}
+      {{- $configs = append $configs (dict "name" $config "content" $content) }}
+      - source: {{ $config }}
+        target: {{ $target }}
+      {{- end }}
+    {{- end }}
+    {{- with $service.health }}
+    healthcheck:
+      test: {{ toRawJson .test }}
+      interval: {{ .interval | default "30s" }}
+      timeout: {{ .timeout | default "5s" }}
+      retries: {{ .retries | default 3 }}
+      start_period: {{ .startPeriod | default "0s" }}
+    {{- end }}
+    init: {{ ne (toString $service.init) "false" }}
+    restart: {{ ternary "no" "unless-stopped" (default false $service.once) | quote }}
+    {{- with $service.stopGracePeriod }}
+    stop_grace_period: {{ . }}
+    {{- end }}
+    {{- if ne (toString $service.noNewPrivileges) "false" }}
+    security_opt:
+      - no-new-privileges:true
+    {{- end }}
+    {{- if and $values.sleep.after (not $service.once) }}
+    labels:
+      sablier.enable: "true"
+      sablier.group: {{ $values.slug }}
+    {{- end }}
+    deploy:
+      resources:
+        limits:
+          cpus: {{ toString $service.resources.cpus | quote }}
+          memory: {{ $service.resources.memory }}
+        {{- with $service.resources.reserve }}
+        reservations:
+          memory: {{ . }}
+        {{- end }}
+{{- end }}
+{{- if $volumes }}
+
+volumes:
+  {{- range $volume, $_ := $volumes }}
+  {{ $volume }}: {}
+  {{- end }}
+{{- end }}
+{{- if $configs }}
+
+configs:
+  {{- range $configs }}
+  {{ .name }}:
+    content: {{ replace "$" "$$" .content | toRawJson }}
+  {{- end }}
+{{- end }}
+{{- if $public }}
+
+networks:
+  edge:
+    external: true
+{{- end }}

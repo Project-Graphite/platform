@@ -95,25 +95,10 @@
     "composeDeploy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "host", "source"],
+      "required": ["kind", "host"],
       "properties": {
         "kind": {"const": "compose"},
-        "host": {"$ref": "#/$defs/host"},
-        "source": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["file", "service", "port"],
-          "properties": {
-            "file": {"type": "string", "pattern": "^(?!/)(?!.*[.][.])[A-Za-z0-9._/-]+[.]ya?ml$"},
-            "service": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
-            "port": {"type": "integer", "minimum": 1, "maximum": 65535}
-          }
-        },
-        "secrets": {
-          "type": "array",
-          "uniqueItems": true,
-          "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}
-        }
+        "host": {"$ref": "#/$defs/host"}
       }
     },
     "pagesDeploy": {

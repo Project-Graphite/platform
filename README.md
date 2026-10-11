@@ -1,95 +1,94 @@
 # platform
 
-The control plane for Project Graphite. One file per project describes what it is, who owns
-it, and where it runs. Validation and the public Hub registry are derived from these files.
+The control plane for Project Graphite: who the members are, what each project is, and how and
+where it runs. Every deployment happens from here.
 
-This repository contains deployment metadata, not credentials. Runtime values live only in
-Coolify, Cloudflare, or GitHub secret stores.
+| Path | What it holds | Written by |
+| :--- | :--- | :--- |
+| `people/<handle>.yml` | member profiles | registry sync, or by hand with `profile: manual` |
+| `projects/<slug>.yml` | the Hub card, host and deploy kind | registry sync from each `.graphite.yml` |
+| `deploy/<slug>/values.yaml` | how a project runs in production | contributors, by pull request |
+| `tags/<slug>.json` | the image or site build CI last published | CI only |
+| `charts/core/` | the chart that renders values into a Compose project and its route | maintainers |
+| `edge/` | Traefik, Sablier, cloudflared and the wake scheduler on the VPS | maintainers |
+| `host/` | VPS bootstrap and helper scripts | maintainers |
 
-## Registry
+Secret values never live here. They are in the owners-only `secrets` repository, which only an
+organisation owner can change and apply.
 
-`people/<handle>.yml` describes a member and creates their portfolio at
-`project-graphite.com/members/<handle>`. The registry sync creates one for every organisation
-member and refreshes it from their GitHub profile unless it sets `profile: manual`.
+## How a deploy happens
 
-`projects/<slug>.yml` drives the Hub card, project page, public hostname, and deployment source.
-Set `parent` to the slug of an epic (`kind: epic`) when an entry belongs to it. Child projects
-share their epic's repository and appear at `/epics/<parent>/<slug>`.
-`tags/<slug>.json` records immutable service image tags published by CI.
+1. A project's CI publishes its images, or records its static-site commit, in `tags/<slug>.json`.
+2. That push runs **Deploy**. It renders `deploy/<slug>/values.yaml` with the `core` chart version
+   the values pin, checks the project's secrets exist on the VPS, copies the Compose file over SSH
+   through Cloudflare Access, runs `docker compose up --wait`, publishes the route to Traefik and
+   points the hostname at the tunnel.
+3. Static sites are built here from the recorded commit and uploaded to Cloudflare Pages.
 
-## Deployment kinds
+A pull request that changes values, the chart or the edge runs the same rendering in **PR**, and
+merging it deploys.
 
-`deploy.kind` is one of:
-
-- `compose`: a Git-based Docker Compose application on the shared Coolify VPS
-- `pages`: a static Cloudflare Pages build
-- `none`: source only
-
-### Compose projects
+## Values
 
 ```yaml
-deploy:
-  kind: compose
-  host: game-forge.project-graphite.com
-  source:
-    file: compose.production.yaml
-    service: web
+core: 1.0.0                # core chart version
+enabled: true              # true | false
+secrets: [API_KEY]         # required keys in the secrets repository
+sleep:                     # optional
+  after: 30m               # duration
+  wake: "0 */6 * * *"      # cron | "@every 6h"
+  wakeFor: 15m             # duration
+
+services:
+  app:
+    image: ghcr.io/project-graphite/<repo>/app
+    tag: sha-1a2b3c4        # optional pin; omitted follows CI
+    command: [node, server.js]
+    entrypoint: [sh, -c]
     port: 3000
-  secrets: [DATABASE_PASSWORD]
+    public: true           # exactly one service
+    env:
+      API_KEY: ${API_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    dependsOn: {postgres: healthy}   # healthy | started | completed
+    volumes: [data:/data, files:/files:ro]
+    files: {/etc/app.conf: "..."}
+    health: {test: [CMD, wget, -q, --spider, "http://127.0.0.1:3000/health"], interval: 30s, timeout: 5s, retries: 3, startPeriod: 20s}
+    resources: {cpus: "0.5", memory: 512M, reserve: 128M}
+    once: false            # true for a run-once job
+    init: true
+    noNewPrivileges: true
+    stopGracePeriod: 10s
 ```
 
-The production Compose file belongs to the project repository. It must use persistent named
-volumes for state, define health checks, declare required values with `${NAME:?}`, avoid host port
-publishing, and set resource limits suitable for the shared 4 GB VPS. Coolify owns public routing
-to the declared service and internal port.
+An image with `:` or `@` is used as written. Any other image gets `tag`, else the tag in
+`tags/<slug>.json`, else `latest`. `${NAME}` in `env` reads the secrets file; a name without a
+default must be listed in `secrets`. Write `$$` for a literal `$` in `env` and `command`; `files`
+are literal.
 
-Secret names may be listed here for review, but their values are entered directly in Coolify and
-never committed. The initial server is a single failure domain intended for low-traffic portfolio
-demos, not highly available production workloads.
+A static site's values are only `enabled` and an optional `tag` pin. Its build comes from the
+registry's `deploy.source`.
 
-### Pages projects
+`deploy/host.yaml` holds the VPS memory budget. **PR** fails when the services' `reserve` total
+exceeds `memory` minus `system`.
 
-```yaml
-deploy:
-  kind: pages
-  host: project-graphite.com
-  source:
-    directory: site
-    output: dist
-    command: npm run build
-```
+## The core chart
 
-### Source-only projects
+`charts/core` is versioned by `Chart.yaml`. **Deploy** tags `core-v<version>` on the first push of
+a new version, and each project moves to it by changing `core:` in its values. A pull request that
+changes the chart without bumping its version fails.
 
-```yaml
-deploy:
-  kind: none
-```
-
-## Adding a project
-
-1. Create a repository from `project-template`.
-2. Add a Dockerfile for each deployable service and a production Compose file.
-3. In the new repository's `.graphite.yml`, replace the `project-template` entry with this
-   project's slug and metadata. The Sync registry workflow writes `projects/<slug>.yml` here and
-   merges it once the PR checks pass.
-4. Merge the project image build and let CI record immutable tags in `tags/<slug>.json`.
-5. Add the repository to Coolify, enter its declared secrets, and review the deployment before
-   selecting Deploy.
-
-The shared workflow refuses deployment records for projects without a matching platform entry.
-Recording a tag does not deploy or mutate the VPS.
-
-## Scripts
+## Running it
 
 ```sh
 pip install pyyaml jsonschema
 python scripts/validate.py
 python scripts/compile.py registry.json
+python scripts/deploy.py check
 ```
 
-`validate.py` checks schemas, ownership, host uniqueness, and cross-file contracts. `compile.py`
-produces the public registry consumed by Graphite Hub.
+`deploy.py check` needs Helm 3 and Docker. Deploy runs on demand from Actions → **Deploy** → Run
+workflow, with a project slug, `edge` or `all`.
 
 ## Editor support
 
@@ -97,7 +96,8 @@ produces the public registry consumed by Graphite Hub.
 {
   "yaml.schemas": {
     "./schema/project.schema.json": "projects/*.yml",
-    "./schema/person.schema.json": "people/*.yml"
+    "./schema/person.schema.json": "people/*.yml",
+    "./charts/core/values.schema.json": "deploy/*/values.yaml"
   }
 }
 ```

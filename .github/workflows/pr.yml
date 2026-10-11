@@ -18,6 +18,24 @@ jobs:
       - run: pip install pyyaml jsonschema
       - run: python scripts/validate.py
 
+  deploy:
+    name: Deploy values
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - run: pip install pyyaml
+      - uses: azure/setup-helm@v5
+        with:
+          version: v3.22.0
+      - run: python scripts/deploy.py check
+        env:
+          BASE_REF: ${{ github.base_ref }}
+
   secrets:
     name: Secrets
     uses: project-graphite/actions/.github/workflows/reusable-gitleaks.yml@main

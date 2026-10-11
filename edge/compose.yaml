@@ -1,0 +1,54 @@
+name: edge
+
+services:
+  traefik:
+    image: traefik:v3.7.14
+    command: [--configFile=/etc/traefik/traefik.yml]
+    ports:
+      - "127.0.0.1:8080:80"
+    volumes:
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./routes:/etc/traefik/routes:ro
+    networks: [edge]
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+
+  sablier:
+    image: sablierapp/sablier:1.18.0
+    command: [start, --provider.name=docker, --strategy.dynamic.default-theme=ghost]
+    ports:
+      - "127.0.0.1:10000:10000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [edge]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    command: [tunnel, --no-autoupdate, run]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN?missing secret TUNNEL_TOKEN}
+    network_mode: host
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+
+networks:
+  edge:
+    external: true

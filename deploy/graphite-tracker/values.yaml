@@ -1,0 +1,54 @@
+core: 1.0.0
+enabled: false
+secrets: [POSTGRES_PASSWORD, AUTH_ACCESS_TOKEN_SECRET, EMAIL_HOST, DEFAULT_FROM_EMAIL]
+
+services:
+  app:
+    image: ghcr.io/project-graphite/graphite-tracker/app
+    port: 3000
+    public: true
+    env:
+      DATABASE_URL: postgresql://graphite:${POSTGRES_PASSWORD}@postgres:5432/graphite_tracker
+      REDIS_URL: redis://redis:6379
+      AUTH_ACCESS_TOKEN_SECRET: ${AUTH_ACCESS_TOKEN_SECRET}
+      AUTH_TRUSTED_ORIGINS: https://graphite-tracker.project-graphite.com
+      APP_URL: https://graphite-tracker.project-graphite.com
+      TMDB_READ_ACCESS_TOKEN: ${TMDB_READ_ACCESS_TOKEN:-}
+      GAME_SOURCE: ${GAME_SOURCE:-igdb}
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID:-}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET:-}
+      RAWG_API_KEY: ${RAWG_API_KEY:-}
+      DISABLED_SOURCES: ${DISABLED_SOURCES:-}
+      EMAIL_HOST: ${EMAIL_HOST}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL}
+    dependsOn: {postgres: healthy, redis: healthy}
+    health:
+      test: [CMD, wget, --quiet, --tries=1, --spider, "http://127.0.0.1:3000/api/v1/health"]
+      startPeriod: 20s
+    resources: {cpus: "0.75", memory: 512M, reserve: 160M}
+
+  postgres:
+    image: postgres:18-alpine
+    env:
+      POSTGRES_DB: graphite_tracker
+      POSTGRES_USER: graphite
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: [postgres-data:/var/lib/postgresql]
+    health:
+      test: [CMD-SHELL, pg_isready -U graphite -d graphite_tracker]
+      interval: 10s
+      retries: 10
+    resources: {cpus: "0.75", memory: 384M, reserve: 96M}
+
+  redis:
+    image: redis:8.10-alpine
+    command: [redis-server, --appendonly, "yes", --maxmemory, 64mb, --maxmemory-policy, allkeys-lru]
+    volumes: [redis-data:/data]
+    health:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      retries: 10
+    resources: {cpus: "0.25", memory: 96M, reserve: 16M}
