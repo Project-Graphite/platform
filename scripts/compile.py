@@ -1,5 +1,6 @@
 import json
 import pathlib
+import subprocess
 import sys
 
 import yaml
@@ -16,6 +17,16 @@ def load(directory):
 
 def collapse(text):
     return " ".join(text.split())
+
+
+def listed_on(slug):
+    return subprocess.run(
+        ["git", "log", "--diff-filter=A", "--format=%as", "--", f"projects/{slug}.yml"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()[-1]
 
 
 def project_card(project):
@@ -38,6 +49,8 @@ def project_card(project):
         "status": project["status"],
         "paths": project.get("paths", []),
         "releases": project.get("releases", "auto"),
+        "pinned": project.get("pinned", False),
+        "listedOn": listed_on(project["slug"]),
         "showcase": {
             "problem": collapse(showcase["problem"]),
             "approach": collapse(showcase["approach"]),
