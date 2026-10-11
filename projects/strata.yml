@@ -16,6 +16,7 @@ authors:
 - AmrMsCLL
 status: live
 listed: true
+pinned: true
 deploy:
   kind: compose
   host: strata.project-graphite.com
