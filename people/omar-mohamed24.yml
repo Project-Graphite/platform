@@ -1,6 +1,33 @@
 handle: omar-mohamed24
 github: Omar-Mohamed24
 name: Omar Mohamed
+headline: Backend & Full-stack Software Engineer
+bio: >
+  Software engineer who goes looking for the hard parts. Wrote a Game Boy emulator from scratch in
+  C++20, compiled it to WebAssembly and shipped it as PixelPocket, where it passes all of Blargg's
+  CPU tests and plays in any browser. Built GameForge, a ten-service platform where an LLM planner,
+  an MCP asset pipeline and a Godot build step turn one sentence into a playable game. Codeforces
+  Expert with 1000+ problems solved, CS graduate of FCAI, Cairo University, and formerly a prompt
+  engineer at Scale AI.
+stack:
+  - group: languages
+    items: [C++, JavaScript, Python, Java, C#]
+  - group: backend
+    items: [Node.js, Express, Django, REST APIs, Microservices]
+  - group: frontend
+    items: [React, WebAssembly, HTML, CSS]
+  - group: data
+    items: [MongoDB, MySQL, MinIO]
+  - group: ai
+    items: [LLM Integration, MCP, Stability AI, Prompt Engineering]
+  - group: platform
+    items: [Docker, Docker Compose, GitHub Actions, Linux, Git]
 links:
   - label: github
     url: https://github.com/Omar-Mohamed24
+  - label: linkedin
+    url: https://www.linkedin.com/in/omar-mohamed-8034032a3
+  - label: email
+    url: mailto:omarmohamed67371@gmail.com
+  - label: codeforces
+    url: https://codeforces.com/profile/Maliiketh
