@@ -1,6 +1,6 @@
 # platform
 
-The private control plane for Project Graphite. One file per project describes what it is, who owns
+The control plane for Project Graphite. One file per project describes what it is, who owns
 it, and where it runs. Validation and the public Hub registry are derived from these files.
 
 This repository contains deployment metadata, not credentials. Runtime values live only in
