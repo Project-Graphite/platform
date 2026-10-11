@@ -9,7 +9,8 @@ Coolify, Cloudflare, or GitHub secret stores.
 ## Registry
 
 `people/<handle>.yml` describes a member and creates their portfolio at
-`project-graphite.com/members/<handle>`.
+`project-graphite.com/members/<handle>`. The registry sync creates one for every organisation
+member and refreshes it from their GitHub profile unless it sets `profile: manual`.
 
 `projects/<slug>.yml` drives the Hub card, project page, public hostname, and deployment source.
 Set `parent` to the slug of an epic (`kind: epic`) when an entry belongs to it. Child projects
