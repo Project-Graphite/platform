@@ -4,8 +4,6 @@ on:
   workflow_dispatch:
   repository_dispatch:
     types: [sync-registry]
-  schedule:
-    - cron: "17 5 * * *"
 
 concurrency:
   group: sync-registry
@@ -46,6 +44,13 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: python scripts/sync.py
 
+      - name: Sync people from GitHub profiles
+        id: people
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python scripts/people.py
+
       - run: python scripts/validate.py
 
       - name: Open registry update
@@ -55,7 +60,7 @@ jobs:
           WORKFLOW_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git add projects
+          git add projects people
           if git diff --cached --quiet; then
             echo "Registry already current."
             exit 0
@@ -94,9 +99,9 @@ jobs:
           fi
 
           file_count="$(gh pr view "$pr" --json files --jq '.files | length')"
-          invalid_paths="$(gh pr view "$pr" --json files --jq '[.files[].path | select(test("^projects/[^/]+\\.yml$") | not)] | join(", ")')"
+          invalid_paths="$(gh pr view "$pr" --json files --jq '[.files[].path | select(test("^(projects|people)/[^/]+\\.yml$") | not)] | join(", ")')"
           if [ "$file_count" -eq 0 ] || [ -n "$invalid_paths" ]; then
-            echo "::error::Registry PR #${pr} changes files outside projects/*.yml: ${invalid_paths}"
+            echo "::error::Registry PR #${pr} changes files outside projects/*.yml and people/*.yml: ${invalid_paths}"
             exit 1
           fi
 
@@ -124,7 +129,7 @@ jobs:
           gh pr merge "$pr" --squash --delete-branch --match-head-commit "$head_sha"
 
       - name: Report skipped manifests
-        if: steps.sync.outcome == 'failure'
+        if: steps.sync.outcome == 'failure' || steps.people.outcome == 'failure'
         run: |
-          echo "::error::The sync skipped invalid repository manifests or failed; see the Sync repository manifests step."
+          echo "::error::The sync skipped invalid repository manifests or could not read GitHub profiles; see the Sync repository manifests and Sync people steps."
           exit 1
