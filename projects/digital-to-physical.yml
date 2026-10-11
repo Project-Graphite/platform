@@ -1,16 +1,22 @@
 slug: digital-to-physical
 kind: project
 name: Digital to Physical
-summary: >
-  A private, client-side tool that turns digital comic archives into print-ready PDFs with spread
+summary: 'A private, client-side tool that turns digital comic archives into print-ready PDFs with spread
   alignment, booklet padding, flexible back covers and a live pre-print audit.
-tags: [react, vite, typescript, webassembly, pdf]
-repo: project-graphite/digital-to-physical
+
+  '
+tags:
+- react
+- vite
+- typescript
+- webassembly
+- pdf
 owner: bluocaroot
-authors: [BluoCaroot]
+authors:
+- BluoCaroot
 status: live
 listed: true
-
+pinned: true
 deploy:
   kind: pages
   host: digital-to-physical.project-graphite.com
@@ -18,3 +24,4 @@ deploy:
     directory: web-app
     output: dist
     command: npm run build
+repo: project-graphite/digital-to-physical
