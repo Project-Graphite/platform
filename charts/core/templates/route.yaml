@@ -1,0 +1,38 @@
+{{- $values := .Values -}}
+{{- $public := include "core.public" . | fromJson -}}
+{{- if $values.host }}
+{{- if ne (len $public) 1 }}{{ fail "exactly one service must set public: true" }}{{ end }}
+{{- $service := first (values $public) }}
+{{- if not $service.port }}{{ fail "the public service must set port" }}{{ end }}
+http:
+  routers:
+    {{ $values.slug }}:
+      rule: {{ printf "Host(`%s`)" $values.host | quote }}
+      entryPoints: [websecure]
+      service: {{ $values.slug }}
+      tls:
+        certResolver: letsencrypt
+      {{- if $values.sleep.after }}
+      middlewares: [{{ $values.slug }}-sleep]
+      {{- end }}
+  services:
+    {{ $values.slug }}:
+      loadBalancer:
+        servers:
+          - url: {{ printf "http://%s:%v" $values.slug $service.port | quote }}
+  {{- if $values.sleep.after }}
+  middlewares:
+    {{ $values.slug }}-sleep:
+      plugin:
+        sablier:
+          sablierUrl: http://sablier:10000
+          group: {{ $values.slug }}
+          sessionDuration: {{ $values.sleep.after }}
+          ignoreUserAgent:
+            - "(?i)(bot|crawler|spider|preview|curl|wget|uptime)"
+          dynamic:
+            displayName: {{ $values.name | default $values.slug | quote }}
+            theme: ghost
+            refreshFrequency: 5s
+  {{- end }}
+{{- end }}

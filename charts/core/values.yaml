@@ -1,0 +1,9 @@
+core: ""
+slug: ""
+name: ""
+host: ""
+enabled: true
+secrets: []
+sleep: {}
+tags: {}
+services: {}

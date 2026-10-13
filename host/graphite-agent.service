@@ -1,0 +1,14 @@
+[Unit]
+Description=Project Graphite deploy agent
+After=docker.service
+Requires=docker.service
+
+[Service]
+User=deploy
+EnvironmentFile=/etc/graphite-agent.env
+ExecStart=/usr/bin/python3 /srv/graphite/bin/agent.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -45,14 +45,4 @@ showcase:
 deploy:
   kind: compose
   host: pixelpocket.project-graphite.com
-  source:
-    file: compose.production.yaml
-    service: frontend
-    port: 80
-  secrets:
-  - MONGO_PASSWORD
-  - MINIO_ROOT_PASSWORD
-  - S3_SECRET_KEY
-  - JWT_SECRET
-  - EMAIL_PASSWORD
 repo: project-graphite/pixelpocket

@@ -1,0 +1,15 @@
+name: wake
+
+services:
+  ofelia:
+    image: mcuadros/ofelia:0.3.22
+    command: [daemon, --config=/etc/ofelia.ini]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./ofelia.ini:/etc/ofelia.ini:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: 32M

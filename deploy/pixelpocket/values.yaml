@@ -1,0 +1,124 @@
+core: 1.0.0
+enabled: false
+secrets: [MONGO_PASSWORD, MINIO_ROOT_PASSWORD, S3_SECRET_KEY, JWT_SECRET, EMAIL_HOST, EMAIL_FROM]
+
+services:
+  frontend:
+    image: ghcr.io/project-graphite/pixelpocket/frontend
+    port: 80
+    public: true
+    dependsOn: {backend: healthy}
+    health:
+      test: [CMD, wget, --quiet, --tries=1, --spider, "http://127.0.0.1/"]
+      startPeriod: 10s
+    resources: {cpus: "0.25", memory: 64M, reserve: 16M}
+
+  backend:
+    image: ghcr.io/project-graphite/pixelpocket/backend
+    port: 5000
+    env:
+      NODE_ENV: production
+      PORT: "5000"
+      DATABASE_LOCAL: mongodb://pixelpocket:${MONGO_PASSWORD}@mongo:27017/pixelpocket?authSource=admin
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-90d}
+      JWT_COOKIE_EXPIRES_IN: ${JWT_COOKIE_EXPIRES_IN:-90}
+      FRONTEND_URL: https://pixelpocket.project-graphite.com
+      EMAIL_HOST: ${EMAIL_HOST}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USERNAME: ${EMAIL_USERNAME:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      EMAIL_FROM: ${EMAIL_FROM}
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: pixelpocket
+      S3_ACCESS_KEY: pixelpocket-app
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+    dependsOn: {mongo: healthy, minio-init: completed}
+    health:
+      test: [CMD, wget, --quiet, --tries=1, --spider, "http://127.0.0.1:5000/api/v1/users/session"]
+      startPeriod: 20s
+    resources: {cpus: "0.5", memory: 256M, reserve: 96M}
+
+  mongo:
+    image: mongo:7
+    env:
+      MONGO_INITDB_ROOT_USERNAME: pixelpocket
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+    volumes: [mongo-data:/data/db]
+    health:
+      test: [CMD-SHELL, "mongosh -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --quiet --eval \"db.adminCommand('ping')\""]
+      interval: 10s
+      retries: 10
+    resources: {cpus: "0.5", memory: 512M, reserve: 192M}
+
+  minio:
+    image: chainguard/minio@sha256:25bc63a89475bc494bfbce9bbeddb0421aece3f3968d77c809db5104d07b4545
+    command: [server, /data]
+    env:
+      MINIO_ROOT_USER: pixelpocket-admin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes: [minio-data:/data]
+    files:
+      /scripts/healthcheck.sh: |
+          #!/bin/bash
+          # The MinIO image has no curl, wget or grep, so this asks the health endpoint
+          # over bash's /dev/tcp and checks the status line with bash itself
+          exec 3<>/dev/tcp/127.0.0.1/9000
+          printf 'GET /minio/health/live HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          read -r status <&3
+          [[ "$status" == *" 200 "* ]]
+    health:
+      test: [CMD, bash, /scripts/healthcheck.sh]
+      interval: 10s
+      retries: 10
+    resources: {cpus: "0.5", memory: 256M, reserve: 128M}
+
+  minio-init:
+    image: chainguard/minio@sha256:25bc63a89475bc494bfbce9bbeddb0421aece3f3968d77c809db5104d07b4545
+    entrypoint: [bash, /scripts/init.sh]
+    once: true
+    env:
+      MINIO_ROOT_USER: pixelpocket-admin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: pixelpocket
+      S3_ACCESS_KEY: pixelpocket-app
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+    dependsOn: {minio: healthy}
+    files:
+      /scripts/init.sh: |
+          #!/bin/bash
+          # Runs once at startup (the minio-init service). Creates the bucket and a restricted
+          # account for the Backend, so the app never uses MinIO's root credentials.
+          set -euo pipefail
+
+          export MC_CONFIG_DIR=/tmp/.mc
+          mc alias set local http://minio:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null
+
+          mc mb --ignore-existing "local/$S3_BUCKET"
+          # Nothing in the bucket is public: every file goes through the Backend's access checks
+          mc anonymous set none "local/$S3_BUCKET"
+
+          cat > /tmp/policy.json <<POLICY
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+                "Resource": ["arn:aws:s3:::$S3_BUCKET"]
+              },
+              {
+                "Effect": "Allow",
+                "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+                "Resource": ["arn:aws:s3:::$S3_BUCKET/*"]
+              }
+            ]
+          }
+          POLICY
+
+          mc admin user add local "$S3_ACCESS_KEY" "$S3_SECRET_KEY"
+          mc admin policy create local pixelpocket-app /tmp/policy.json
+          mc admin policy attach local pixelpocket-app --user "$S3_ACCESS_KEY" 2>/dev/null || true
+
+          echo "MinIO is ready: bucket '$S3_BUCKET', app user '$S3_ACCESS_KEY'."
+    resources: {cpus: "0.25", memory: 128M}

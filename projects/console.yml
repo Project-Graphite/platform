@@ -1,0 +1,21 @@
+slug: console
+kind: project
+name: Graphite Console
+summary: 'A web console for the Project Graphite VPS: every project''s containers, images, volumes,
+  usage, logs and terminals in one place, behind Cloudflare Access.
+
+  '
+tags:
+- typescript
+- react
+- docker
+- nodejs
+owner: amrmscll
+authors:
+- AmrMsCLL
+status: wip
+listed: false
+deploy:
+  kind: compose
+  host: console.project-graphite.com
+repo: project-graphite/console

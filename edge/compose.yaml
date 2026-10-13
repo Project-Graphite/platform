@@ -1,0 +1,49 @@
+name: edge
+
+services:
+  traefik:
+    image: traefik:v3.7.14
+    command: [--configFile=/etc/traefik/traefik.yml]
+    ports:
+      - "80:80"
+      - "443:443/tcp"
+      - "443:443/udp"
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN?missing secret CF_DNS_API_TOKEN}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./routes:/etc/traefik/routes:ro
+      - letsencrypt:/letsencrypt
+    networks: [edge]
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 128M
+
+  sablier:
+    image: sablierapp/sablier:1.18.0
+    command: [start, --provider.name=docker, --strategy.dynamic.default-theme=ghost]
+    ports:
+      - "127.0.0.1:10000:10000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [edge]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 64M
+
+volumes:
+  letsencrypt:
+
+networks:
+  edge:
+    external: true

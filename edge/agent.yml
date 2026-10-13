@@ -1,0 +1,13 @@
+http:
+  routers:
+    agent:
+      rule: Host(`deploy.project-graphite.com`)
+      entryPoints: [websecure]
+      service: agent
+      tls:
+        certResolver: letsencrypt
+  services:
+    agent:
+      loadBalancer:
+        servers:
+          - url: http://host.docker.internal:9000
