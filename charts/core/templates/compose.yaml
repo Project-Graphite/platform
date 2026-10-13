@@ -74,6 +74,9 @@ services:
     {{- end }}
     init: {{ ne (toString $service.init) "false" }}
     restart: {{ ternary "no" "unless-stopped" (default false $service.once) | quote }}
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "5"}
     {{- with $service.stopGracePeriod }}
     stop_grace_period: {{ . }}
     {{- end }}

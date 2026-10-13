@@ -18,6 +18,9 @@ services:
       - letsencrypt:/letsencrypt
     networks: [edge]
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "5"}
     security_opt:
       - no-new-privileges:true
     deploy:
@@ -38,6 +41,9 @@ services:
         target: /etc/sablier/themes/graphite.html
     networks: [edge]
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "5"}
     deploy:
       resources:
         limits:
