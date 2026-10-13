@@ -1,5 +1,5 @@
 core: 1.0.0
-enabled: false
+enabled: true
 proxied: true
 secrets: [GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, SESSION_SECRET, ACCESS_TEAM, ACCESS_AUD]
 
