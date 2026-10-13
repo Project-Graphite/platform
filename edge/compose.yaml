@@ -8,6 +8,8 @@ services:
       - "80:80"
       - "443:443/tcp"
       - "443:443/udp"
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN?missing secret CF_DNS_API_TOKEN}
     extra_hosts:
       - host.docker.internal:host-gateway
     volumes:

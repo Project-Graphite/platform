@@ -10,7 +10,7 @@ where it runs. Every deployment happens from here.
 | `deploy/<slug>/values.yaml` | how a project runs in production | contributors, by pull request |
 | `tags/<slug>.json` | the image or site build CI last published | CI only |
 | `charts/core/` | the chart that renders values into a Compose project and its route | maintainers |
-| `edge/` | Traefik (with Let's Encrypt), Sablier and the wake scheduler on the VPS | maintainers |
+| `edge/` | Traefik (Let's Encrypt through Cloudflare DNS), Sablier and the wake scheduler on the VPS | maintainers |
 | `host/` | VPS bootstrap, the deploy agent and `graphite-up` | maintainers |
 
 Secret values never live here. They are in the owners-only `secrets` repository, which only an

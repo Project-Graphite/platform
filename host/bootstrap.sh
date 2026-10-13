@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-if [ "$(id -u)" -ne 0 ] || [ -z "${DEPLOY_TOKEN:-}" ]; then
-  echo "usage: sudo DEPLOY_TOKEN=<token> sh bootstrap.sh" >&2
+if [ "$(id -u)" -ne 0 ] || [ -z "${DEPLOY_TOKEN:-}" ] || [ -z "${CF_DNS_API_TOKEN:-}" ]; then
+  echo "usage: sudo DEPLOY_TOKEN=<token> CF_DNS_API_TOKEN=<token> sh bootstrap.sh" >&2
   exit 1
 fi
 
@@ -19,8 +19,10 @@ curl -fsSL -o /srv/graphite/edge/compose.yaml "$source/edge/compose.yaml"
 curl -fsSL -o /srv/graphite/edge/traefik.yml "$source/edge/traefik.yml"
 curl -fsSL -o /srv/graphite/edge/routes/edge.yml "$source/edge/agent.yml"
 curl -fsSL -o /etc/systemd/system/graphite-agent.service "$source/host/graphite-agent.service"
+printf 'CF_DNS_API_TOKEN=%s\n' "$CF_DNS_API_TOKEN" > /srv/graphite/edge/secrets.env
 chmod 755 /srv/graphite/bin/graphite-up
 chown -R deploy:deploy /srv/graphite
+chmod 600 /srv/graphite/edge/secrets.env
 
 docker network inspect edge >/dev/null 2>&1 || docker network create edge
 bind="$(docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')"

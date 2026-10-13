@@ -190,6 +190,7 @@ def deploy_edge():
         "action": "up",
         "files": {name: (ROOT / "edge" / name).read_text(encoding="utf-8") for name in ("compose.yaml", "traefik.yml")},
         "route": (ROOT / "edge" / "agent.yml").read_text(encoding="utf-8"),
+        "require": ["CF_DNS_API_TOKEN"],
     }))
 
 
