@@ -32,7 +32,7 @@ http:
             - "(?i)(bot|crawler|spider|preview|curl|wget|uptime)"
           dynamic:
             displayName: {{ $values.name | default $values.slug | quote }}
-            theme: ghost
+            theme: graphite
             refreshFrequency: 5s
   {{- end }}
 {{- end }}
