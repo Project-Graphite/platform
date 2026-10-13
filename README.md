@@ -58,6 +58,8 @@ services:
     once: false            # true for a run-once job
     init: true
     noNewPrivileges: true
+    privileged: false      # true | false
+    pid: host              # host
     stopGracePeriod: 10s
 ```
 

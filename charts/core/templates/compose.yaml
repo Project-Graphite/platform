@@ -68,6 +68,12 @@ services:
     {{- with $service.stopGracePeriod }}
     stop_grace_period: {{ . }}
     {{- end }}
+    {{- if $service.privileged }}
+    privileged: true
+    {{- end }}
+    {{- with $service.pid }}
+    pid: {{ . }}
+    {{- end }}
     {{- if ne (toString $service.noNewPrivileges) "false" }}
     security_opt:
       - no-new-privileges:true
