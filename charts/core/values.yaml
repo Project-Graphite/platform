@@ -1,9 +1,68 @@
-core: ""
+# Every option a project can set, with its default. A project writes only what differs, in
+# deploy/<slug>/core.yaml (what runs) and deploy/<slug>/values.yaml (its settings).
+
+# Filled in by Deploy from projects/<slug>.yml and tags/<slug>.json. Never write these.
 slug: ""
 name: ""
 host: ""
-enabled: true
-secrets: []
-sleep: {}
 tags: {}
+
+# The project.
+enabled: true          # false takes the project down
+proxied: false         # true sends the hostname through Cloudflare's proxy
+sleep: {}              # after: 30m stops the project after that long without requests and starts
+                       # it on the next one; wake: "0 */6 * * *" (cron or "@every 6h") starts it on a
+                       # schedule for wakeFor (default 15m)
+
+# Every service under services: starts from these. A service sets:
+#   image        required; the tag comes from tags/<slug>.json unless the image names one or tag: is set
+#   port         the port it listens on; with one port in the project, that service gets the hostname
+#   public       true picks the service that gets the hostname when several have a port
+#   health       an HTTP path on port, e.g. /health (checked with wget, then curl), or
+#                {test: [CMD, ...], interval: 30s, timeout: 5s, retries: 3, startPeriod: 0s}
+#   env          plain settings; ${NAME} and ${NAME:-default} read the secrets file
+#   secrets      names that must be in secrets/<slug>.env, passed through as environment
+#   optional     names passed through when present, empty otherwise
+#   volumes      [name:/path] or [name:/path:ro]; named volumes are created
+#   files        {/path/in/container: file-in-deploy/<slug>/files}
+#   dependsOn    {service: healthy | started | completed}; services also wait for postgres and redis
+#   command, entrypoint, stopGracePeriod, once (runs to completion), privileged, pid: host,
+#   init (default true), noNewPrivileges (default true)
+#   memory, cpus, reserve (default a quarter of memory)
+service:
+  memory: 256M
+  cpus: "0.5"
+
+# A PostgreSQL server named postgres, with its data in the postgres-data volume. Every service gets
+# DATABASE_URL, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DB, POSTGRES_USER and POSTGRES_PASSWORD, and
+# POSTGRES_PASSWORD must be in the secrets file.
+postgres:
+  image: postgres:18-alpine
+  database: ""         # default: the slug with - as _
+  user: ""             # default: the database name
+  settings: {}         # server settings, e.g. {shared_buffers: 64MB, max_connections: 40}
+  env: {}
+  memory: 256M
+  cpus: "0.5"
+  reserve: ""
+
+# A Redis server named redis, append-only, with its data in the redis-data volume. Every service
+# gets REDIS_URL.
+redis:
+  image: redis:8.10-alpine
+  password: false      # true requires REDIS_PASSWORD in the secrets file
+  evict: true          # false keeps every key and refuses writes when full, as a queue needs
+  maxmemory: ""        # default: three quarters of memory
+  memory: 64M
+  cpus: "0.25"
+  reserve: ""
+
+# A daily pg_dump of postgres into the backups volume, plus a tar of each volume in include.
+backup:
+  keepDays: 14
+  include: []          # volume names, e.g. [files-data]
+  memory: 128M
+  cpus: "0.25"
+  reserve: ""
+
 services: {}

@@ -7,9 +7,12 @@ where it runs. Every deployment happens from here.
 | :--- | :--- | :--- |
 | `people/<handle>.yml` | member profiles | registry sync, or by hand with `profile: manual` |
 | `projects/<slug>.yml` | the Hub card, host and deploy kind | registry sync from each `.graphite.yml` |
-| `deploy/<slug>/values.yaml` | how a project runs in production | contributors, by pull request |
+| `deploy/<slug>/core.yaml` | what a project runs: its services and built-in components | contributors, by pull request |
+| `deploy/<slug>/values.yaml` | its settings: environment, secret names, memory | contributors, by pull request |
+| `deploy/<slug>/files/` | scripts and config files its services mount | contributors, by pull request |
+| `deploy/chart.yaml` | the `core` chart version every project uses | maintainers |
 | `tags/<slug>.json` | the image or site build CI last published | CI only |
-| `charts/core/` | the chart that renders values into a Compose project and its route | maintainers |
+| `charts/core/` | the chart that renders a project into a Compose project and its route; its `values.yaml` lists every option and default | maintainers |
 | `edge/` | Traefik (Let's Encrypt through Cloudflare DNS), Sablier and the wake scheduler on the VPS | maintainers |
 | `host/` | VPS bootstrap, the deploy agent, `graphite-agent.service` and `graphite-up` | maintainers |
 
@@ -22,8 +25,8 @@ organisation owner can change and apply.
 2. That push runs **Deploy**, as does any push to `main` under `charts/core/`, `deploy/`, `edge/`,
    `host/` or `projects/`. A change to `deploy/<slug>/`, `tags/<slug>.json` or
    `projects/<slug>.yml` deploys that project; a change to `edge/` or `host/` redeploys the edge.
-   Deploy renders `deploy/<slug>/values.yaml` with the `core` chart version the values pin and
-   posts it, signed with `DEPLOY_TOKEN`, to the deploy agent at `deploy.project-graphite.com`. The
+   Deploy merges `deploy/<slug>/core.yaml` and `values.yaml`, renders them with the `core` chart
+   version in `deploy/chart.yaml` and posts the result, signed with `DEPLOY_TOKEN`, to the deploy agent at `deploy.project-graphite.com`. The
    agent checks the project's secrets exist, runs `docker compose up --wait` and publishes the
    route to Traefik. Deploy then points the hostname at the VPS with a DNS-only record
    (`proxied: true` sends it through Cloudflare instead).
@@ -32,72 +35,83 @@ organisation owner can change and apply.
    CNAME at `<slug>.pages.dev`; it refuses a Git-connected project of the same name. The build is
    uploaded with `wrangler pages deploy` (Wrangler 4.149.0).
 
-**PR** runs on every pull request. `deploy.py check` renders every project's values, not the edge,
-and merging deploys what changed. A chart-only change tags `core-v<version>` and deploys nothing
-until a project bumps `core:`.
+**PR** runs on every pull request. `deploy.py check` renders every project, not the edge, and
+merging deploys what changed. A chart change tags `core-v<version>` and deploys nothing until
+`deploy/chart.yaml` moves to it, which redeploys every project.
 
-## Values
+## Projects
 
-```yaml
-core: 1.0.0                # required; core chart version
-enabled: true              # true | false
-proxied: false             # true | false
-secrets: [API_KEY]         # required keys in the secrets repository
-sleep:                     # optional
-  after: 30m               # duration
-  wake: "0 */6 * * *"      # cron | "@every 6h"; requires after
-  wakeFor: 15m             # duration; requires wake; default 15m
+A project on the VPS is a folder:
 
-services:                  # required, at least one
-  app:
-    image: ghcr.io/project-graphite/<repo>/app   # required
-    tag: sha-1a2b3c4        # optional pin; omitted follows CI
-    command: [node, server.js]
-    entrypoint: [sh, -c]
-    port: 3000             # required on the public service
-    public: true           # exactly one service when the project has a host
-    env:
-      API_KEY: ${API_KEY}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-    dependsOn: {postgres: healthy}   # healthy | started | completed
-    volumes: [data:/data, files:/files:ro]
-    files: {/etc/app.conf: "..."}
-    health: {test: [CMD, wget, -q, --spider, "http://127.0.0.1:3000/health"], interval: 30s, timeout: 5s, retries: 3, startPeriod: 0s}
-    resources: {cpus: "0.5", memory: 512M, reserve: 128M}   # cpus and memory required
-    once: false            # true for a run-once job
-    init: true
-    noNewPrivileges: true
-    privileged: false      # true | false
-    pid: host              # host
-    stopGracePeriod: 10s
+```
+deploy/strata/
+  core.yaml      what runs
+  values.yaml    how it is configured
+  files/         scripts its services mount, if any
 ```
 
-Deploy injects `slug`, `name` and `host` from `projects/<slug>.yml` and `tags` from
-`tags/<slug>.json`; never write them.
+The smallest project is one service with a port, which gets the project's hostname:
+
+```yaml
+# core.yaml
+services:
+  app:
+    image: ghcr.io/project-graphite/<repo>/app
+    port: 3000
+    health: /health
+```
+
+```yaml
+# values.yaml
+app:
+  memory: 256M
+  env:
+    APP_URL: https://<slug>.project-graphite.com
+  secrets: [API_KEY]
+```
+
+`values.yaml` uses the names from `core.yaml`, a service or a built-in component, and its fields
+are merged over them; it can also set `enabled: false`. **PR** fails when it names something
+`core.yaml` does not define. Either file can hold any field: by convention, what a project is goes in
+`core.yaml` and what you tune goes in `values.yaml`.
+
+Every option and its default is in [`charts/core/values.yaml`](charts/core/values.yaml). A project
+writes only what differs.
+
+| Key in `core.yaml` | Gives |
+| :--- | :--- |
+| `services.<name>` | any container: image, port, health, env, secrets, volumes, files, command and the rest |
+| `postgres` | a PostgreSQL server; every service gets `DATABASE_URL` and `POSTGRES_*` and waits for it |
+| `redis` | a Redis server; every service gets `REDIS_URL` and waits for it |
+| `backup` | a daily `pg_dump` into the `backups` volume, plus a tar of the volumes it lists |
+| `sleep` | stops the project after `after` without requests; `wake` starts it on a schedule |
+| `proxied` | sends the hostname through Cloudflare's proxy |
+
+A service's `secrets` must exist in `secrets/<slug>.env` and are passed through under the same
+name; `optional` names are passed when present. `env` holds plain settings, and `${NAME}` or
+`${NAME:-default}` in it reads the secrets file; a name without a default must be in some service's
+`secrets`. `files` mounts a file from `deploy/<slug>/files/`. With several ported services, set
+`public: true` on the one that gets the hostname.
 
 An image with `:` or `@` is used as written. Any other image gets `tag`, else the tag in
-`tags/<slug>.json`, else `latest`. `${NAME}` in `env` reads the secrets file; a name without a
-default must be listed in `secrets`. Write `$$` for a literal `$` in `env` and `command`; `files`
-are literal.
+`tags/<slug>.json`, else `latest`. To roll back, set `<service>: {tag: sha-1a2b3c4}` in
+`values.yaml`.
 
-`health` needs `test`; the other fields default to the values shown. `init` and
-`noNewPrivileges` are on unless set to `false`. `once: true` sets `restart: "no"`.
+`deploy/strata/` shows `postgres`, `redis` and `backup`; `deploy/pixelpocket/` shows plain services
+with mounted scripts; `deploy/graphite-message-lab/` shows `sleep`.
 
-`sleep.after` puts every service that is not `once` in the project's Sablier group, which stops
-after that long without traffic and starts on the next request. `wake` starts the group on a
-schedule for `wakeFor`.
+A static site needs only `deploy/<slug>/values.yaml` with `enabled: true`, and an optional `tag`
+pin. Its build comes from the registry's `deploy.source`.
 
-A static site's values are only `enabled` and an optional `tag` pin. Its build comes from the
-registry's `deploy.source`.
-
-`deploy/host.yaml` holds the VPS memory budget. **PR** fails when the services' `reserve` total
-exceeds `memory` minus `system`.
+`deploy/host.yaml` holds the VPS memory budget. **PR** fails when the rendered reservations exceed
+`memory` minus `system`.
 
 ## The core chart
 
 `charts/core` is versioned by `Chart.yaml`. **Deploy** tags `core-v<version>` on the first push of
-a new version, and each project moves to it by changing `core:` in its values. A pull request that
-changes the chart without bumping its version fails.
+a new version, and `deploy/chart.yaml` picks the version every project renders with. A project can
+stay behind with `core: <version>` in its `core.yaml`. A pull request that changes the chart without
+bumping its version fails.
 
 ## Workflows
 
@@ -171,5 +185,5 @@ with a project slug, `edge` or `all`.
 }
 ```
 
-`charts/core/values.schema.json` checks the values Helm receives, including the injected `slug`,
-so it does not validate `deploy/*/values.yaml` as written.
+`charts/core/values.schema.json` checks a project after Deploy merges its two files and adds `slug`,
+so it does not validate `core.yaml` or `values.yaml` on their own.

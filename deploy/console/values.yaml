@@ -1,27 +1,8 @@
-core: 1.0.0
-enabled: true
-proxied: true
-secrets: [GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, SESSION_SECRET, ACCESS_TEAM, ACCESS_AUD]
-
-services:
-  app:
-    image: ghcr.io/project-graphite/console/app
-    port: 3000
-    public: true
-    privileged: true
-    pid: host
-    env:
-      NODE_ENV: production
-      APP_URL: https://console.project-graphite.com
-      SSH_TARGET: ubuntu@135.125.254.59
-      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
-      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-      SESSION_SECRET: ${SESSION_SECRET}
-      ACCESS_TEAM: ${ACCESS_TEAM}
-      ACCESS_AUD: ${ACCESS_AUD}
-      ALERTS_TOKEN: ${ALERTS_TOKEN:-}
-    volumes: [/var/run/docker.sock:/var/run/docker.sock, data:/data]
-    health:
-      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
-      startPeriod: 10s
-    resources: {cpus: "0.25", memory: 192M, reserve: 64M}
+app:
+  memory: 192M
+  cpus: "0.25"
+  env:
+    NODE_ENV: production
+    APP_URL: https://console.project-graphite.com
+    SSH_TARGET: ubuntu@135.125.254.59
+  secrets: [GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, SESSION_SECRET, ACCESS_TEAM, ACCESS_AUD]

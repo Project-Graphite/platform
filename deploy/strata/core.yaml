@@ -1,0 +1,13 @@
+postgres:
+  settings: {shared_buffers: 64MB, work_mem: 4MB, max_connections: 40}
+redis:
+  password: true
+backup:
+  include: [files-data]
+
+services:
+  app:
+    image: ghcr.io/project-graphite/strata/app
+    port: 3000
+    health: {path: /api/v1/health, startPeriod: 20s}
+    volumes: [files-data:/data/files]

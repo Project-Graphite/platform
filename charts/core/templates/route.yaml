@@ -1,9 +1,9 @@
 {{- $values := .Values -}}
-{{- $public := include "core.public" . | fromJson -}}
+{{- $public := include "core.public" . -}}
 {{- if $values.host }}
-{{- if ne (len $public) 1 }}{{ fail "exactly one service must set public: true" }}{{ end }}
-{{- $service := first (values $public) }}
-{{- if not $service.port }}{{ fail "the public service must set port" }}{{ end }}
+{{- if not $public }}{{ fail "no service gets the hostname: give one service a port, or set public: true on one of them" }}{{ end }}
+{{- $service := index (include "core.services" . | fromJson) $public }}
+{{- if not $service.port }}{{ fail (printf "%s gets the hostname, so it must set port" $public) }}{{ end }}
 http:
   routers:
     {{ $values.slug }}:

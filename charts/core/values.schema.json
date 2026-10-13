@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Project Graphite deploy values",
+  "title": "Project Graphite project",
   "type": "object",
   "additionalProperties": false,
   "required": ["core", "slug", "services"],
@@ -9,9 +9,9 @@
     "slug": {"type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$"},
     "name": {"type": "string"},
     "host": {"type": "string"},
+    "tags": {"type": "object", "additionalProperties": {"type": "string"}},
     "enabled": {"type": "boolean"},
     "proxied": {"type": "boolean"},
-    "secrets": {"$ref": "#/definitions/names"},
     "sleep": {
       "type": "object",
       "additionalProperties": false,
@@ -22,23 +22,72 @@
       },
       "dependencies": {"wake": ["after"], "wakeFor": ["wake"]}
     },
-    "tags": {"type": "object", "additionalProperties": {"type": "string"}},
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {"memory": {"$ref": "#/definitions/memory"}, "cpus": {"$ref": "#/definitions/cpus"}}
+    },
+    "postgres": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "image": {"type": "string", "minLength": 1},
+        "database": {"$ref": "#/definitions/identifier"},
+        "user": {"$ref": "#/definitions/identifier"},
+        "settings": {"type": "object", "additionalProperties": {"type": ["string", "number"]}},
+        "env": {"$ref": "#/definitions/env"},
+        "memory": {"$ref": "#/definitions/memory"},
+        "cpus": {"$ref": "#/definitions/cpus"},
+        "reserve": {"$ref": "#/definitions/optionalMemory"}
+      }
+    },
+    "redis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "image": {"type": "string", "minLength": 1},
+        "password": {"type": "boolean"},
+        "evict": {"type": "boolean"},
+        "maxmemory": {"type": "string", "pattern": "^([0-9]+(mb|gb))?$"},
+        "memory": {"$ref": "#/definitions/memory"},
+        "cpus": {"$ref": "#/definitions/cpus"},
+        "reserve": {"$ref": "#/definitions/optionalMemory"}
+      }
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "keepDays": {"type": "integer", "minimum": 1},
+        "include": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/definitions/volumeName"}},
+        "memory": {"$ref": "#/definitions/memory"},
+        "cpus": {"$ref": "#/definitions/cpus"},
+        "reserve": {"$ref": "#/definitions/optionalMemory"}
+      }
+    },
     "services": {
       "type": "object",
-      "minProperties": 1,
-      "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$"},
+      "propertyNames": {"pattern": "^[a-z][a-z0-9-]*$", "not": {"enum": ["postgres", "redis", "backup"]}},
       "additionalProperties": {"$ref": "#/definitions/service"}
     }
   },
   "definitions": {
     "duration": {"type": "string", "pattern": "^[0-9]+(s|m|h)$"},
     "memory": {"type": "string", "pattern": "^[0-9]+[MG]$"},
+    "optionalMemory": {"type": "string", "pattern": "^([0-9]+[MG])?$"},
+    "cpus": {"type": ["string", "number"]},
+    "identifier": {"type": "string", "pattern": "^([a-z_][a-z0-9_]*)?$"},
+    "volumeName": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"},
     "strings": {"type": "array", "minItems": 1, "items": {"type": "string"}},
     "names": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"}},
+    "env": {"type": "object", "additionalProperties": {"type": ["string", "number", "boolean"]}},
     "service": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["image", "resources"],
+      "required": ["image"],
       "properties": {
         "image": {"type": "string", "minLength": 1},
         "tag": {"type": "string", "minLength": 1},
@@ -46,35 +95,33 @@
         "command": {"$ref": "#/definitions/strings"},
         "port": {"type": "integer", "minimum": 1, "maximum": 65535},
         "public": {"type": "boolean"},
-        "env": {"type": "object", "additionalProperties": {"type": ["string", "number", "boolean"]}},
-        "dependsOn": {
-          "type": "object",
-          "additionalProperties": {"enum": ["healthy", "started", "completed"]}
-        },
+        "env": {"$ref": "#/definitions/env"},
+        "secrets": {"$ref": "#/definitions/names"},
+        "optional": {"$ref": "#/definitions/names"},
+        "dependsOn": {"type": "object", "additionalProperties": {"enum": ["healthy", "started", "completed"]}},
         "volumes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[^:]+:/[^:]*(:ro)?$"}},
         "files": {"type": "object", "propertyNames": {"pattern": "^/"}, "additionalProperties": {"type": "string"}},
         "health": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["test"],
-          "properties": {
-            "test": {"$ref": "#/definitions/strings"},
-            "interval": {"$ref": "#/definitions/duration"},
-            "timeout": {"$ref": "#/definitions/duration"},
-            "retries": {"type": "integer", "minimum": 1},
-            "startPeriod": {"$ref": "#/definitions/duration"}
-          }
+          "oneOf": [
+            {"type": "string", "pattern": "^/"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {"type": "string", "pattern": "^/"},
+                "test": {"$ref": "#/definitions/strings"},
+                "interval": {"$ref": "#/definitions/duration"},
+                "timeout": {"$ref": "#/definitions/duration"},
+                "retries": {"type": "integer", "minimum": 1},
+                "startPeriod": {"$ref": "#/definitions/duration"}
+              },
+              "oneOf": [{"required": ["path"]}, {"required": ["test"]}]
+            }
+          ]
         },
-        "resources": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["cpus", "memory"],
-          "properties": {
-            "cpus": {"type": ["string", "number"]},
-            "memory": {"$ref": "#/definitions/memory"},
-            "reserve": {"$ref": "#/definitions/memory"}
-          }
-        },
+        "memory": {"$ref": "#/definitions/memory"},
+        "cpus": {"$ref": "#/definitions/cpus"},
+        "reserve": {"$ref": "#/definitions/memory"},
         "once": {"type": "boolean"},
         "privileged": {"type": "boolean"},
         "pid": {"enum": ["host"]},

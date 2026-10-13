@@ -1,0 +1,10 @@
+postgres:
+  database: graphite_tracker
+  user: graphite
+redis: {}
+
+services:
+  app:
+    image: ghcr.io/project-graphite/graphite-tracker/app
+    port: 3000
+    health: {path: /api/v1/health, startPeriod: 20s}

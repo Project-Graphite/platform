@@ -1,0 +1,35 @@
+services:
+  frontend:
+    image: ghcr.io/project-graphite/pixelpocket/frontend
+    port: 80
+    public: true
+    dependsOn: {backend: healthy}
+    health: {path: /, startPeriod: 10s}
+
+  backend:
+    image: ghcr.io/project-graphite/pixelpocket/backend
+    port: 5000
+    dependsOn: {mongo: healthy, minio-init: completed}
+    health: {path: /api/v1/users/session, startPeriod: 20s}
+
+  mongo:
+    image: mongo:7
+    volumes: [mongo-data:/data/db]
+    health:
+      test: [CMD-SHELL, "mongosh -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --quiet --eval \"db.adminCommand('ping')\""]
+      interval: 10s
+      retries: 10
+
+  minio:
+    image: chainguard/minio@sha256:25bc63a89475bc494bfbce9bbeddb0421aece3f3968d77c809db5104d07b4545
+    command: [server, /data]
+    volumes: [minio-data:/data]
+    files: {/scripts/healthcheck.sh: minio-healthcheck.sh}
+    health: {test: [CMD, bash, /scripts/healthcheck.sh], interval: 10s, retries: 10}
+
+  minio-init:
+    image: chainguard/minio@sha256:25bc63a89475bc494bfbce9bbeddb0421aece3f3968d77c809db5104d07b4545
+    entrypoint: [bash, /scripts/init.sh]
+    once: true
+    dependsOn: {minio: healthy}
+    files: {/scripts/init.sh: minio-init.sh}
