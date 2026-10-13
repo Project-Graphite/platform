@@ -1,5 +1,5 @@
 core: 1.0.0
-enabled: false
+enabled: true
 secrets: [MONGO_PASSWORD, MINIO_ROOT_PASSWORD, S3_SECRET_KEY, JWT_SECRET, EMAIL_HOST, EMAIL_FROM]
 
 services:

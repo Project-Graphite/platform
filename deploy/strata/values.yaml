@@ -1,5 +1,5 @@
 core: 1.0.0
-enabled: false
+enabled: true
 secrets: [POSTGRES_PASSWORD, REDIS_PASSWORD, AUTH_ACCESS_TOKEN_SECRET, DATA_ENCRYPTION_KEY, EMAIL_HOST, DEFAULT_FROM_EMAIL]
 
 services:
