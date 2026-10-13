@@ -37,6 +37,12 @@ services:
       - source: sablier-theme
         target: /etc/sablier/themes/graphite.html
     networks: [edge]
+    healthcheck:
+      test: [CMD, /bin/sablier, health]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
     restart: unless-stopped
     deploy:
       resources:
