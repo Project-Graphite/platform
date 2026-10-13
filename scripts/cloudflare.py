@@ -27,40 +27,23 @@ def call(method, path, body=None):
         raise RuntimeError(f"Cloudflare answered {error.code} for {method} {path}: {error.read().decode()}") from error
 
 
-def point(name, target):
+def point(name, kind, content, proxied):
     zone = os.environ["CLOUDFLARE_ZONE_ID"]
     records = [
         record
         for record in call("GET", f"/zones/{zone}/dns_records?name={urllib.parse.quote(name)}")
         if record["type"] in ROUTABLE
     ]
-    if [(record["type"], record["content"], record["proxied"]) for record in records] == [("CNAME", target, True)]:
+    if [(record["type"], record["content"], record["proxied"]) for record in records] == [(kind, content, proxied)]:
         return
     for record in records:
         call("DELETE", f"/zones/{zone}/dns_records/{record['id']}")
-    call("POST", f"/zones/{zone}/dns_records", {"type": "CNAME", "name": name, "content": target, "proxied": True})
-    print(f"Pointed {name} at {target}.")
+    call("POST", f"/zones/{zone}/dns_records", {"type": kind, "name": name, "content": content, "proxied": proxied})
+    print(f"Pointed {name} at {content}{' through the Cloudflare proxy' if proxied else ''}.")
 
 
-def tunnel():
-    return f"{os.environ['TUNNEL_ID']}.cfargotunnel.com"
-
-
-def configure_tunnel(ssh_host):
-    account = os.environ["CLOUDFLARE_ACCOUNT_ID"]
-    call(
-        "PUT",
-        f"/accounts/{account}/cfd_tunnel/{os.environ['TUNNEL_ID']}/configurations",
-        {
-            "config": {
-                "ingress": [
-                    {"hostname": ssh_host, "service": "ssh://localhost:22"},
-                    {"service": "http://localhost:8080"},
-                ]
-            }
-        },
-    )
-    point(ssh_host, tunnel())
+def point_at_vps(name, proxied=False):
+    point(name, "A", os.environ["VPS_IPV4"], proxied)
 
 
 def pages_site(project, host):
@@ -77,4 +60,4 @@ def pages_site(project, host):
     if host not in {domain["name"] for domain in call("GET", f"{projects}/{project}/domains")}:
         call("POST", f"{projects}/{project}/domains", {"name": host})
         print(f"Attached {host} to {project}.")
-    point(host, f"{project}.pages.dev")
+    point(host, "CNAME", f"{project}.pages.dev", True)

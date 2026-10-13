@@ -10,8 +10,8 @@ where it runs. Every deployment happens from here.
 | `deploy/<slug>/values.yaml` | how a project runs in production | contributors, by pull request |
 | `tags/<slug>.json` | the image or site build CI last published | CI only |
 | `charts/core/` | the chart that renders values into a Compose project and its route | maintainers |
-| `edge/` | Traefik, Sablier, cloudflared and the wake scheduler on the VPS | maintainers |
-| `host/` | VPS bootstrap and helper scripts | maintainers |
+| `edge/` | Traefik (with Let's Encrypt), Sablier and the wake scheduler on the VPS | maintainers |
+| `host/` | VPS bootstrap, the deploy agent and `graphite-up` | maintainers |
 
 Secret values never live here. They are in the owners-only `secrets` repository, which only an
 organisation owner can change and apply.
@@ -20,9 +20,10 @@ organisation owner can change and apply.
 
 1. A project's CI publishes its images, or records its static-site commit, in `tags/<slug>.json`.
 2. That push runs **Deploy**. It renders `deploy/<slug>/values.yaml` with the `core` chart version
-   the values pin, checks the project's secrets exist on the VPS, copies the Compose file over SSH
-   through Cloudflare Access, runs `docker compose up --wait`, publishes the route to Traefik and
-   points the hostname at the tunnel.
+   the values pin and posts it, signed with `DEPLOY_TOKEN`, to the deploy agent at
+   `deploy.project-graphite.com`. The agent checks the project's secrets exist, runs
+   `docker compose up --wait` and publishes the route to Traefik. Deploy then points the hostname
+   at the VPS with a DNS-only record (`proxied: true` sends it through Cloudflare instead).
 3. Static sites are built here from the recorded commit and uploaded to Cloudflare Pages.
 
 A pull request that changes values, the chart or the edge runs the same rendering in **PR**, and
@@ -33,6 +34,7 @@ merging it deploys.
 ```yaml
 core: 1.0.0                # core chart version
 enabled: true              # true | false
+proxied: false             # true | false
 secrets: [API_KEY]         # required keys in the secrets repository
 sleep:                     # optional
   after: 30m               # duration

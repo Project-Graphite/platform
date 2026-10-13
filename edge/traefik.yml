@@ -1,8 +1,22 @@
 entryPoints:
   web:
     address: ":80"
-    forwardedHeaders:
-      insecure: true
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+    http3: {}
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: projectgraphite.org@gmail.com
+      storage: /letsencrypt/acme.json
+      httpChallenge:
+        entryPoint: web
 
 providers:
   file:

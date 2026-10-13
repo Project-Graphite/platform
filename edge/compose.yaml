@@ -5,10 +5,15 @@ services:
     image: traefik:v3.7.14
     command: [--configFile=/etc/traefik/traefik.yml]
     ports:
-      - "127.0.0.1:8080:80"
+      - "80:80"
+      - "443:443/tcp"
+      - "443:443/udp"
+    extra_hosts:
+      - host.docker.internal:host-gateway
     volumes:
       - ./traefik.yml:/etc/traefik/traefik.yml:ro
       - ./routes:/etc/traefik/routes:ro
+      - letsencrypt:/letsencrypt
     networks: [edge]
     restart: unless-stopped
     security_opt:
@@ -34,20 +39,8 @@ services:
           cpus: "0.25"
           memory: 64M
 
-  cloudflared:
-    image: cloudflare/cloudflared:2026.10.0
-    command: [tunnel, --no-autoupdate, run]
-    environment:
-      TUNNEL_TOKEN: ${TUNNEL_TOKEN?missing secret TUNNEL_TOKEN}
-    network_mode: host
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: 64M
+volumes:
+  letsencrypt:
 
 networks:
   edge:

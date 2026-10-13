@@ -27,8 +27,10 @@ permissions:
 env:
   CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
   CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
-  TUNNEL_ID: ${{ vars.TUNNEL_ID }}
-  DEPLOY_SSH_HOST: ${{ vars.DEPLOY_SSH_HOST }}
+  DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+  VPS_IPV4: ${{ vars.VPS_IPV4 }}
+  BEFORE: ${{ github.event.before }}
+  PROJECT: ${{ inputs.project }}
 
 jobs:
   plan:
@@ -37,11 +39,7 @@ jobs:
     permissions:
       contents: write
     outputs:
-      compose: ${{ steps.plan.outputs.compose }}
       pages: ${{ steps.plan.outputs.pages }}
-      down: ${{ steps.plan.outputs.down }}
-      edge: ${{ steps.plan.outputs.edge }}
-      wake: ${{ steps.plan.outputs.wake }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -52,45 +50,14 @@ jobs:
       - run: pip install pyyaml
       - run: python scripts/deploy.py release-core
       - id: plan
-        env:
-          BEFORE: ${{ github.event.before }}
-          PROJECT: ${{ inputs.project }}
         run: python scripts/deploy.py plan | tee -a "$GITHUB_OUTPUT"
 
-  edge:
-    name: Edge
+  vps:
+    name: VPS
     needs: plan
-    if: needs.plan.outputs.edge == 'true' && vars.DEPLOY_SSH_HOST != ''
+    if: vars.DEPLOY_URL != ''
     runs-on: ubuntu-latest
     environment: production
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-      - run: pip install pyyaml
-      - uses: project-graphite/actions/vps-ssh@main
-        with:
-          host: ${{ vars.DEPLOY_SSH_HOST }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          access-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          access-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      - run: python scripts/deploy.py edge
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
-  compose:
-    name: ${{ matrix.project }}
-    needs: [plan, edge]
-    if: ${{ !cancelled() && needs.plan.outputs.compose != '[]' && needs.edge.result != 'failure' && vars.DEPLOY_SSH_HOST != '' }}
-    runs-on: ubuntu-latest
-    environment: production
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        project: ${{ fromJSON(needs.plan.outputs.compose) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -102,65 +69,10 @@ jobs:
       - uses: azure/setup-helm@v5
         with:
           version: v3.22.0
-      - uses: project-graphite/actions/vps-ssh@main
-        with:
-          host: ${{ vars.DEPLOY_SSH_HOST }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          access-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          access-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      - run: python scripts/deploy.py compose "$PROJECT"
+      - run: python scripts/deploy.py apply
         env:
-          PROJECT: ${{ matrix.project }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
-  down:
-    name: ${{ matrix.project }} (down)
-    needs: plan
-    if: needs.plan.outputs.down != '[]' && vars.DEPLOY_SSH_HOST != ''
-    runs-on: ubuntu-latest
-    environment: production
-    strategy:
-      fail-fast: false
-      matrix:
-        project: ${{ fromJSON(needs.plan.outputs.down) }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-      - run: pip install pyyaml
-      - uses: project-graphite/actions/vps-ssh@main
-        with:
-          host: ${{ vars.DEPLOY_SSH_HOST }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          access-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          access-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      - run: python scripts/deploy.py down "$PROJECT"
-        env:
-          PROJECT: ${{ matrix.project }}
-
-  wake:
-    name: Wake schedules
-    needs: [plan, compose, down]
-    if: ${{ !cancelled() && needs.plan.outputs.wake == 'true' && vars.DEPLOY_SSH_HOST != '' }}
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.14"
-      - run: pip install pyyaml
-      - uses: project-graphite/actions/vps-ssh@main
-        with:
-          host: ${{ vars.DEPLOY_SSH_HOST }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          known-hosts: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
-          access-id: ${{ secrets.CF_ACCESS_CLIENT_ID }}
-          access-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      - run: python scripts/deploy.py wake
 
   build:
     name: ${{ matrix.project }} (build)
@@ -180,8 +92,8 @@ jobs:
       - id: site
         env:
           GH_TOKEN: ${{ github.token }}
-          PROJECT: ${{ matrix.project }}
-        run: python scripts/deploy.py pages-info "$PROJECT" | tee -a "$GITHUB_OUTPUT"
+          SITE: ${{ matrix.project }}
+        run: python scripts/deploy.py pages-info "$SITE" | tee -a "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
           repository: ${{ steps.site.outputs.repository }}
@@ -227,8 +139,8 @@ jobs:
           name: ${{ matrix.project }}
           path: dist
       - env:
-          PROJECT: ${{ matrix.project }}
+          SITE: ${{ matrix.project }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          python scripts/deploy.py pages-site "$PROJECT"
-          npx --yes wrangler@4.149.0 pages deploy dist --project-name "$PROJECT" --branch main
+          python scripts/deploy.py pages-site "$SITE"
+          npx --yes wrangler@4.149.0 pages deploy dist --project-name "$SITE" --branch main

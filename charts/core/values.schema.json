@@ -10,6 +10,7 @@
     "name": {"type": "string"},
     "host": {"type": "string"},
     "enabled": {"type": "boolean"},
+    "proxied": {"type": "boolean"},
     "secrets": {"$ref": "#/definitions/names"},
     "sleep": {
       "type": "object",

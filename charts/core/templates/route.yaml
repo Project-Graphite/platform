@@ -8,8 +8,10 @@ http:
   routers:
     {{ $values.slug }}:
       rule: {{ printf "Host(`%s`)" $values.host | quote }}
-      entryPoints: [web]
+      entryPoints: [websecure]
       service: {{ $values.slug }}
+      tls:
+        certResolver: letsencrypt
       {{- if $values.sleep.after }}
       middlewares: [{{ $values.slug }}-sleep]
       {{- end }}

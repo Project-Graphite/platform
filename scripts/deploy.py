@@ -12,14 +12,14 @@ import urllib.request
 
 import yaml
 
+import agent
 import cloudflare
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEPLOY = ROOT / "deploy"
 CHART = ROOT / "charts" / "core"
-REMOTE = "graphite"
-BASE = "/srv/graphite"
 CURL = "curlimages/curl:8.22.0"
+DEPLOY_HOST = "deploy.project-graphite.com"
 CHANGE = re.compile(r"^(?:deploy|tags|projects)/([a-z0-9-]+)(?:/|[.]json$|[.]yml$)")
 REFERENCE = re.compile(r"(?<![$])[$][{]([A-Z][A-Z0-9_]*)[}]")
 MEMORY = re.compile(r"^([0-9]+)([MG])$")
@@ -61,14 +61,6 @@ def run(*command, capture=False, stdin=None):
 
 def git(*args):
     return run("git", "-C", str(ROOT), *args, capture=True).strip()
-
-
-def ssh(command, capture=False, stdin=None):
-    return run("ssh", REMOTE, command, capture=capture, stdin=stdin)
-
-
-def upload(path, target):
-    ssh(f"cat > {target}", stdin=path.read_text(encoding="utf-8"))
 
 
 def github(path):
@@ -123,12 +115,6 @@ def render(slug, chart, out):
     return templates / "compose.yaml", templates / "route.yaml"
 
 
-def prepare():
-    ssh(f"mkdir -p {BASE}/bin")
-    upload(ROOT / "host" / "graphite-up", f"{BASE}/bin/graphite-up")
-    ssh(f"chmod 755 {BASE}/bin/graphite-up")
-
-
 def release_core():
     version = core_version()
     if released(version):
@@ -169,57 +155,42 @@ def plan():
             (compose if enabled(spec) else down).append(slug)
         elif kind == "pages" and enabled(spec):
             pages.append(slug)
+    return {"edge": edge, "compose": compose, "down": down, "wake": edge or bool(compose or down), "pages": pages}
 
-    print(f"compose={json.dumps(compose)}")
-    print(f"pages={json.dumps(pages)}")
-    print(f"down={json.dumps(down)}")
-    print(f"edge={str(edge).lower()}")
-    print(f"wake={str(edge or bool(compose or down)).lower()}")
+
+def show_plan():
+    for key, value in plan().items():
+        print(f"{key}={json.dumps(value)}")
 
 
 def deploy_compose(slug):
     spec = values(slug)
-    remote = f"{BASE}/{slug}"
     with tempfile.TemporaryDirectory() as workdir:
-        workdir = pathlib.Path(workdir)
-        compose, route = render(slug, chart_at(spec["core"], workdir), workdir / "out")
-        prepare()
-        ssh(f"mkdir -p {remote} && touch {remote}/secrets.env && chmod 600 {remote}/secrets.env")
-        present = set(ssh(f"cut -d= -f1 {remote}/secrets.env", capture=True).split())
-        missing = sorted(set(spec.get("secrets", [])) - present)
-        if missing:
-            sys.exit(f"error: {slug} is waiting on secrets: {', '.join(missing)}")
-        upload(compose, f"{remote}/compose.yaml")
-        after = spec.get("sleep", {}).get("after")
-        ssh(f"printf %s {after} > {remote}/sleep" if after else f"rm -f {remote}/sleep")
-        ssh(f"{BASE}/bin/graphite-up {slug}")
-        if route.exists():
-            upload(route, f"{BASE}/edge/routes/{slug}.yml")
-        else:
-            ssh(f"rm -f {BASE}/edge/routes/{slug}.yml")
+        compose, route = render(slug, chart_at(spec["core"], pathlib.Path(workdir)), pathlib.Path(workdir) / "out")
+        print(agent.send({
+            "name": slug,
+            "action": "up",
+            "files": {"compose.yaml": compose.read_text(encoding="utf-8"), "sleep": spec.get("sleep", {}).get("after")},
+            "route": route.read_text(encoding="utf-8") if route.exists() else None,
+            "require": spec.get("secrets", []),
+        }))
     host = entry(slug)["deploy"]["host"]
-    cloudflare.point(host, cloudflare.tunnel())
+    cloudflare.point_at_vps(host, spec.get("proxied", False))
     print(f"Deployed {slug} at https://{host}.")
 
 
 def take_down(slug):
-    remote = f"{BASE}/{slug}"
-    ssh(
-        f"rm -f {BASE}/edge/routes/{slug}.yml {remote}/sleep; "
-        f"if [ -f {remote}/compose.yaml ]; then "
-        f"cd {remote} && docker compose -p {slug} --env-file secrets.env down --remove-orphans; fi"
-    )
-    print(f"{slug} is not deployed.")
+    print(agent.send({"name": slug, "action": "down"}))
 
 
 def deploy_edge():
-    cloudflare.configure_tunnel(os.environ["DEPLOY_SSH_HOST"])
-    prepare()
-    ssh(f"mkdir -p {BASE}/edge/routes")
-    for name in ("compose.yaml", "traefik.yml"):
-        upload(ROOT / "edge" / name, f"{BASE}/edge/{name}")
-    ssh(f"{BASE}/bin/graphite-up edge")
-    print("The edge is up.")
+    cloudflare.point_at_vps(DEPLOY_HOST)
+    print(agent.send({
+        "name": "edge",
+        "action": "up",
+        "files": {name: (ROOT / "edge" / name).read_text(encoding="utf-8") for name in ("compose.yaml", "traefik.yml")},
+        "route": (ROOT / "edge" / "agent.yml").read_text(encoding="utf-8"),
+    }))
 
 
 def deploy_wake():
@@ -240,17 +211,34 @@ def deploy_wake():
                 f"command = -fsS -o /dev/null --max-time 360 {url}\n"
                 "delete = true\n"
             )
-    remote = f"{BASE}/wake"
     if not jobs:
-        ssh(f"if [ -f {remote}/compose.yaml ]; then cd {remote} && docker compose -p wake down; fi")
-        print("No project wakes on a schedule.")
+        print(agent.send({"name": "wake", "action": "down"}))
         return
-    prepare()
-    ssh(f"mkdir -p {remote}")
-    ssh(f"cat > {remote}/ofelia.ini", stdin="\n".join(jobs))
-    upload(ROOT / "edge" / "wake.yaml", f"{remote}/compose.yaml")
-    ssh(f"{BASE}/bin/graphite-up wake && cd {remote} && docker compose -p wake restart")
-    print(f"Scheduled {len(jobs)} wake jobs.")
+    print(agent.send({
+        "name": "wake",
+        "action": "up",
+        "files": {"compose.yaml": (ROOT / "edge" / "wake.yaml").read_text(encoding="utf-8"), "ofelia.ini": "\n".join(jobs)},
+        "restart": True,
+    }))
+
+
+def apply():
+    steps = plan()
+    failed = []
+    for name, step in (
+        [("edge", deploy_edge)] * steps["edge"]
+        + [(slug, lambda slug=slug: deploy_compose(slug)) for slug in steps["compose"]]
+        + [(slug, lambda slug=slug: take_down(slug)) for slug in steps["down"]]
+        + [("wake", deploy_wake)] * steps["wake"]
+    ):
+        print(f"::group::{name}")
+        try:
+            step()
+        except (SystemExit, subprocess.CalledProcessError, RuntimeError) as error:
+            print(f"::error::{name}: {error}")
+            failed.append(name)
+        print("::endgroup::")
+    return 1 if failed else 0
 
 
 def pages_info(slug):
@@ -340,12 +328,9 @@ def check():
 
 COMMANDS = {
     "release-core": release_core,
-    "plan": plan,
+    "plan": show_plan,
+    "apply": apply,
     "check": check,
-    "compose": deploy_compose,
-    "down": take_down,
-    "edge": deploy_edge,
-    "wake": deploy_wake,
     "pages-info": pages_info,
     "pages-site": pages_site,
 }
