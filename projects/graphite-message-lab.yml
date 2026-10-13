@@ -1,33 +1,43 @@
 slug: graphite-message-lab
 kind: project
 name: Graphite Message Lab
-summary: >
-  A public message form with private-by-default moderation, backed by Django, PostgreSQL, Redis and
-  Celery and deployed automatically through the Project Graphite hosting path.
-tags: [django, postgresql, redis, celery, docker]
-repo: project-graphite/graphite-message-lab
+summary: 'A public message form with private-by-default moderation, backed by Django, PostgreSQL, Redis
+  and Celery and deployed automatically through the Project Graphite hosting path.
+
+  '
+tags:
+- django
+- postgresql
+- redis
+- celery
+- docker
 owner: amrmscll
-authors: [AmrMsCLL]
+authors:
+- AmrMsCLL
 status: live
 listed: true
-
 showcase:
-  problem: >
-    Project Graphite needed an approachable application that visitors could use while proving the
-    complete path from a browser through an API, persistent database and background worker.
-  approach: >
-    Visitors submit public or private messages through Django. PostgreSQL stores them, Redis and
-    Celery process them asynchronously, and moderation keeps messages private until an admin chooses
-    to publish them. Coolify redeploys the Compose application when the main branch changes.
-  outcome: >
-    The live lab demonstrates routing, TLS, application health, persistence, asynchronous work,
-    administrator review and automatic deployment through one interaction visitors can understand.
-  contributions:
-    - github: AmrMsCLL
-      summary: >
-        Defined the test scenario and owns the deployment, infrastructure and acceptance criteria
-        used to validate the Graphite hosting path.
+  problem: 'Project Graphite needed an approachable application that visitors could use while proving
+    the complete path from a browser through an API, persistent database and background worker.
 
+    '
+  approach: 'Visitors submit public or private messages through Django. PostgreSQL stores them, Redis
+    and Celery process them asynchronously, and moderation keeps messages private until an admin chooses
+    to publish them. Each main build publishes the images and records their tag in the platform repository,
+    which deploys them.
+
+    '
+  outcome: 'The live lab demonstrates routing, TLS, application health, persistence, asynchronous work,
+    administrator review and automatic deployment through one interaction visitors can understand.
+
+    '
+  contributions:
+  - github: AmrMsCLL
+    summary: 'Defined the test scenario and owns the deployment, infrastructure and acceptance criteria
+      used to validate the Graphite hosting path.
+
+      '
 deploy:
   kind: compose
   host: message-lab.project-graphite.com
+repo: project-graphite/graphite-message-lab
