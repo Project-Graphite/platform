@@ -6,3 +6,4 @@ app:
     APP_URL: https://console.project-graphite.com
     SSH_TARGET: ubuntu@135.125.254.59
   secrets: [GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, SESSION_SECRET, ACCESS_TEAM, ACCESS_AUD]
+  optional: [ALERTS_TOKEN]
