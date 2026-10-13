@@ -28,11 +28,14 @@ services:
 
   sablier:
     image: sablierapp/sablier:1.18.0
-    command: [start, --provider.name=docker, --strategy.dynamic.default-theme=ghost]
+    command: [start, --provider.name=docker, --strategy.dynamic.default-theme=graphite]
     ports:
       - "127.0.0.1:10000:10000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    configs:
+      - source: sablier-theme
+        target: /etc/sablier/themes/graphite.html
     networks: [edge]
     restart: unless-stopped
     deploy:
@@ -43,6 +46,74 @@ services:
 
 volumes:
   letsencrypt:
+
+configs:
+  sablier-theme:
+    content: |
+      <!doctype html>
+      <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <meta name="theme-color" content="#0c0c0e" />
+          <meta http-equiv="refresh" content="{{ .RefreshFrequency }}" />
+          <title>Waking {{ .DisplayName }}</title>
+          <style>
+            :root { color-scheme: dark; --paper: #0c0c0e; --surface: #141417; --line: #26262b; --ink: #e8e8ea; --muted: #9a9aa3; --faint: #6b6b73; --live: #5fbf7f; --danger: #e5736b; }
+            * { box-sizing: border-box; }
+            body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--paper); color: var(--ink); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+            main { width: 100%; max-width: 420px; }
+            .mark { width: 30px; height: 40px; color: var(--ink); animation: breathe 2.4s ease-in-out infinite; }
+            @keyframes breathe { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+            h1 { margin: 28px 0 8px; font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+            p { margin: 0; color: var(--muted); }
+            .bar { display: flex; gap: 4px; margin: 28px 0 14px; }
+            .bar span { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+            .bar span.ready { background: var(--live); }
+            .bar span.starting { background: linear-gradient(90deg, var(--line), var(--muted), var(--line)); background-size: 200% 100%; animation: sweep 1.4s linear infinite; }
+            .bar span.error { background: var(--danger); }
+            @keyframes sweep { from { background-position: 200% 0; } to { background-position: 0 0; } }
+            ul { list-style: none; margin: 0; padding: 0; font: 12px/1.9 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--faint); }
+            li { display: flex; justify-content: space-between; gap: 16px; }
+            li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            li.ready span:last-child { color: var(--live); }
+            li.error span:last-child { color: var(--danger); }
+            .problem { margin-top: 16px; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--danger); border-radius: 8px; background: var(--surface); font-size: 13px; color: var(--ink); }
+            footer { margin-top: 36px; font-size: 12px; color: var(--faint); }
+            footer a { color: var(--muted); }
+            @media (prefers-reduced-motion: reduce) { .mark, .bar span.starting { animation: none; } }
+          </style>
+        </head>
+        <body>
+          <main>
+            <svg class="mark" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="6" viewBox="-3 -3 36 46">
+              <path d="M5.62 25 L0 40 M24.38 25 L30 40" />
+              <path d="M15 0 L8.25 18 H21.75 Z" fill="currentColor" />
+            </svg>
+            <h1>Waking {{ .DisplayName }}</h1>
+            <p>It sleeps while nobody is using it and is starting up now, usually in under a minute. This page opens it as soon as it is ready.</p>
+            {{- if .InstanceStates }}
+            <div class="bar" aria-hidden="true">
+              {{- range .InstanceStates }}
+              <span class="{{ if .Error }}error{{ else if eq .Status "ready" }}ready{{ else }}starting{{ end }}"></span>
+              {{- end }}
+            </div>
+            <ul>
+              {{- range .InstanceStates }}
+              <li class="{{ if .Error }}error{{ else if eq .Status "ready" }}ready{{ end }}">
+                <span>{{ .Name }}</span>
+                <span>{{ if .Error }}failed{{ else if eq .Status "ready" }}ready{{ else }}starting{{ end }}</span>
+              </li>
+              {{- end }}
+            </ul>
+            {{- range .InstanceStates }}{{ if .Error }}
+            <p class="problem">{{ .Name }} could not start: {{ .Error }}</p>
+            {{- end }}{{ end }}
+            {{- end }}
+            <footer>It sleeps again after {{ .SessionDuration }} without visitors. <a href="https://project-graphite.com">Project Graphite</a></footer>
+          </main>
+        </body>
+      </html>
 
 networks:
   edge:
