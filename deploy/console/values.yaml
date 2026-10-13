@@ -13,6 +13,7 @@ services:
     env:
       NODE_ENV: production
       APP_URL: https://console.project-graphite.com
+      SSH_TARGET: ubuntu@135.125.254.59
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       SESSION_SECRET: ${SESSION_SECRET}
