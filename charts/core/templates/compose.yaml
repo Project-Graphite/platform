@@ -2,11 +2,15 @@
 {{- $conditions := dict "healthy" "service_healthy" "started" "service_started" "completed" "service_completed_successfully" -}}
 {{- $volumes := dict -}}
 {{- $configs := list -}}
-{{- $public := include "core.public" . | fromJson -}}
+{{- $services := include "core.services" . | fromJson -}}
+{{- $public := include "core.public" . -}}
 name: {{ $values.slug }}
 
 services:
-{{- range $name, $service := $values.services }}
+{{- range $name, $service := $services }}
+  {{- $health := $service.health }}
+  {{- if kindIs "string" $health }}{{ $health = dict "path" $health }}{{ end }}
+  {{- $memory := $service.memory | default $values.service.memory }}
   {{ $name }}:
     image: {{ include "core.image" (dict "name" $name "service" $service "tags" $values.tags) }}
     {{- with $service.entrypoint }}
@@ -32,11 +36,17 @@ services:
     expose:
       - {{ toString . | toRawJson }}
     {{- end }}
-    {{- if $service.public }}
+    {{- if or (eq $name $public) $service.hosts }}
     networks:
       default: {}
       edge:
-        aliases: [{{ $values.slug }}]
+        aliases:
+          {{- if eq $name $public }}
+          - {{ $values.slug }}
+          {{- end }}
+          {{- if $service.hosts }}
+          - {{ printf "%s-%s" $values.slug $name }}
+          {{- end }}
     {{- end }}
     {{- with $service.volumes }}
     volumes:
@@ -55,9 +65,14 @@ services:
         target: {{ $target }}
       {{- end }}
     {{- end }}
-    {{- with $service.health }}
+    {{- with $health }}
     healthcheck:
+      {{- if .path }}
+      {{- $url := printf "http://127.0.0.1:%v%s" $service.port .path }}
+      test: [CMD-SHELL, {{ printf "wget -q -O /dev/null %s || curl -fsS -o /dev/null %s" $url $url | toRawJson }}]
+      {{- else }}
       test: {{ toRawJson .test }}
+      {{- end }}
       interval: {{ .interval | default "30s" }}
       timeout: {{ .timeout | default "5s" }}
       retries: {{ .retries | default 3 }}
@@ -65,6 +80,9 @@ services:
     {{- end }}
     init: {{ ne (toString $service.init) "false" }}
     restart: {{ ternary "no" "unless-stopped" (default false $service.once) | quote }}
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "5"}
     {{- with $service.stopGracePeriod }}
     stop_grace_period: {{ . }}
     {{- end }}
@@ -86,11 +104,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: {{ toString $service.resources.cpus | quote }}
-          memory: {{ $service.resources.memory }}
-        {{- with $service.resources.reserve }}
+          cpus: {{ toString ($service.cpus | default $values.service.cpus) | quote }}
+          memory: {{ $memory }}
+        {{- if not $service.once }}
         reservations:
-          memory: {{ . }}
+          memory: {{ $service.reserve | default (printf "%dM" (div (include "core.megabytes" $memory | atoi) 4)) }}
         {{- end }}
 {{- end }}
 {{- if $volumes }}
@@ -108,7 +126,7 @@ configs:
     content: {{ replace "$" "$$" .content | toRawJson }}
   {{- end }}
 {{- end }}
-{{- if $public }}
+{{- if or $public (include "core.hosted" . | fromJson).names }}
 
 networks:
   edge:

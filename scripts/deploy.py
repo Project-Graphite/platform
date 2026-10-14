@@ -3,6 +3,7 @@ import json
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -20,6 +21,7 @@ DEPLOY = ROOT / "deploy"
 CHART = ROOT / "charts" / "core"
 CURL = "curlimages/curl:8.22.0"
 DEPLOY_HOST = "deploy.project-graphite.com"
+COMPONENTS = ("postgres", "redis", "backup")
 CHANGE = re.compile(r"^(?:deploy|tags|projects)/([a-z0-9-]+)(?:/|[.]json$|[.]yml$)")
 REFERENCE = re.compile(r"(?<![$])[$][{]([A-Z][A-Z0-9_]*)[}]")
 MEMORY = re.compile(r"^([0-9]+)([MG])$")
@@ -34,7 +36,53 @@ def entry(slug):
 
 
 def values(slug):
-    return load(DEPLOY / slug / "values.yaml")
+    return load(DEPLOY / slug / "values.yaml") or {}
+
+
+def merge(base, override):
+    if isinstance(base, dict) and isinstance(override, dict):
+        return {**base, **{key: merge(base.get(key), value) for key, value in override.items()}}
+    return override
+
+
+def spec(slug):
+    folder = DEPLOY / slug
+    shape = load(folder / "core.yaml") or {}
+    settings = values(slug)
+    services = shape.get("services") or {}
+    components = [name for name in COMPONENTS if name in shape]
+    unknown = set(settings) - {"enabled", *components, *services}
+    if unknown:
+        raise ValueError(f"deploy/{slug}/values.yaml sets {', '.join(sorted(unknown))}, which core.yaml does not define")
+    merged = {key: value for key, value in shape.items() if key != "services"}
+    merged["core"] = shape.get("core") or load(DEPLOY / "chart.yaml")["core"]
+    merged["enabled"] = settings.get("enabled", True)
+    for name in components:
+        merged[name] = {**merge(shape[name] or {}, settings.get(name) or {}), "enabled": True}
+    merged["services"] = {name: merge(service or {}, settings.get(name) or {}) for name, service in services.items()}
+    for service in merged["services"].values():
+        if "files" in service:
+            service["files"] = {
+                target: (folder / "files" / source).read_text(encoding="utf-8") for target, source in service["files"].items()
+            }
+    return merged
+
+
+def required(project):
+    names = {name for service in project["services"].values() for name in service.get("secrets", [])}
+    if "postgres" in project:
+        names.add("POSTGRES_PASSWORD")
+    if project.get("redis", {}).get("password"):
+        names.add("REDIS_PASSWORD")
+    return sorted(names)
+
+
+def hosts(project):
+    return [host for service in project["services"].values() for host in service.get("hosts", [])]
+
+
+def ofelia(schedule):
+    return schedule if schedule.startswith("@") else f"0 {schedule}"
 
 
 def tags(slug):
@@ -42,12 +90,12 @@ def tags(slug):
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
+def compose_project(slug):
+    return (DEPLOY / slug / "core.yaml").exists()
+
+
 def projects():
-    return sorted(path.parent.name for path in DEPLOY.glob("*/values.yaml"))
-
-
-def enabled(spec):
-    return bool(spec) and spec.get("enabled", True)
+    return sorted(path.name for path in DEPLOY.iterdir() if path.is_dir())
 
 
 def mebibytes(memory):
@@ -97,20 +145,22 @@ def chart_at(version, workdir):
     return target / "charts" / "core"
 
 
-def render(slug, chart, out):
+def render(slug, project, chart, out):
     registered = entry(slug)
-    name = registered["name"].replace(",", r"\,")
     shutil.rmtree(out, ignore_errors=True)
-    run(
-        "helm", "template", slug, str(chart),
-        "--values", str(DEPLOY / slug / "values.yaml"),
-        "--set-string", f"slug={slug}",
-        "--set-string", f"host={registered['deploy'].get('host', '')}",
-        "--set-string", f"name={name}",
-        "--set-json", f"tags={json.dumps(tags(slug))}",
-        "--output-dir", str(out),
-        capture=True,
+    out.mkdir(parents=True)
+    given = out / "values.json"
+    given.write_text(
+        json.dumps({
+            **project,
+            "slug": slug,
+            "name": registered["name"],
+            "host": registered["deploy"].get("host", ""),
+            "tags": tags(slug),
+        }),
+        encoding="utf-8",
     )
+    run("helm", "template", slug, str(chart), "--values", str(given), "--output-dir", str(out), capture=True)
     templates = out / "core" / "templates"
     return templates / "compose.yaml", templates / "route.yaml"
 
@@ -145,15 +195,17 @@ def plan():
             chosen, edge = everything, True
         else:
             chosen = sorted({match.group(1) for path in changed if (match := CHANGE.match(path))})
+            if "deploy/chart.yaml" in changed:
+                chosen = sorted({*chosen, *filter(compose_project, everything)})
             edge = any(path.startswith(("edge/", "host/")) for path in changed)
 
     compose, pages, down = [], [], []
     for slug in chosen:
-        registered, spec = entry(slug), values(slug)
+        registered = entry(slug)
         kind = registered["deploy"]["kind"] if registered else None
-        if kind == "compose":
-            (compose if enabled(spec) else down).append(slug)
-        elif kind == "pages" and enabled(spec):
+        if kind == "compose" and compose_project(slug):
+            (compose if spec(slug)["enabled"] else down).append(slug)
+        elif kind == "pages" and (DEPLOY / slug).is_dir() and values(slug).get("enabled", True):
             pages.append(slug)
     return {"edge": edge, "compose": compose, "down": down, "wake": edge or bool(compose or down), "pages": pages}
 
@@ -164,19 +216,20 @@ def show_plan():
 
 
 def deploy_compose(slug):
-    spec = values(slug)
+    project = spec(slug)
     with tempfile.TemporaryDirectory() as workdir:
-        compose, route = render(slug, chart_at(spec["core"], pathlib.Path(workdir)), pathlib.Path(workdir) / "out")
+        compose, route = render(slug, project, chart_at(project["core"], pathlib.Path(workdir)), pathlib.Path(workdir) / "out")
         print(agent.send({
             "name": slug,
             "action": "up",
-            "files": {"compose.yaml": compose.read_text(encoding="utf-8"), "sleep": spec.get("sleep", {}).get("after")},
+            "files": {"compose.yaml": compose.read_text(encoding="utf-8"), "sleep": project.get("sleep", {}).get("after")},
             "route": route.read_text(encoding="utf-8") if route.exists() else None,
-            "require": spec.get("secrets", []),
+            "require": required(project),
         }))
     host = entry(slug)["deploy"]["host"]
-    cloudflare.point_at_vps(host, spec.get("proxied", False))
-    print(f"Deployed {slug} at https://{host}.")
+    for name in [host, *hosts(project)]:
+        cloudflare.point_at_vps(name, project.get("proxied", False))
+    print(f"Deployed {slug} at {', '.join(f'https://{name}' for name in [host, *hosts(project)])}.")
 
 
 def take_down(slug):
@@ -196,17 +249,28 @@ def deploy_edge():
 
 def deploy_wake():
     jobs = []
-    for slug in projects():
-        spec = values(slug)
-        sleep = spec.get("sleep", {}) if spec else {}
-        if enabled(spec) and sleep.get("wake"):
+    for slug in filter(compose_project, projects()):
+        project = spec(slug)
+        if not project["enabled"]:
+            continue
+        for service_name, service in project["services"].items():
+            for job in service.get("jobs", []):
+                jobs.append(
+                    f'[job-exec "{slug}-{service_name}-{job["name"]}"]\n'
+                    f"schedule = {ofelia(job['schedule'])}\n"
+                    f"container = {slug}-{service_name}-1\n"
+                    f"command = {shlex.join(job['command'])}\n"
+                    + (f"user = {job['user']}\n" if job.get("user") else "")
+                )
+        sleep = project.get("sleep", {})
+        if sleep.get("wake"):
             url = (
                 f"http://sablier:10000/api/strategies/blocking?group={slug}"
                 f"&session_duration={sleep.get('wakeFor', '15m')}&timeout=5m"
             )
             jobs.append(
                 f'[job-run "wake-{slug}"]\n'
-                f"schedule = {sleep['wake']}\n"
+                f"schedule = {ofelia(sleep['wake'])}\n"
                 f"image = {CURL}\n"
                 "network = edge\n"
                 f"command = -fsS -o /dev/null --max-time 360 {url}\n"
@@ -235,7 +299,7 @@ def apply():
         print(f"::group::{name}")
         try:
             step()
-        except (SystemExit, subprocess.CalledProcessError, RuntimeError) as error:
+        except (SystemExit, subprocess.CalledProcessError, RuntimeError, ValueError, OSError) as error:
             print(f"::error::{name}: {error}")
             failed.append(name)
         print("::endgroup::")
@@ -243,8 +307,8 @@ def apply():
 
 
 def pages_info(slug):
-    registered, spec = entry(slug), values(slug)
-    tag = spec.get("tag") or tags(slug).get("site")
+    registered = entry(slug)
+    tag = values(slug).get("tag") or tags(slug).get("site")
     if not tag:
         sys.exit(f"error: {slug} has no recorded build; push to its main branch or pin tag in deploy/{slug}/values.yaml")
     repository, source = registered["repo"], registered["deploy"]["source"]
@@ -270,47 +334,61 @@ def check():
     ).returncode:
         problems.append(f"charts/core changed but core {version} is already released; bump charts/core/Chart.yaml")
 
+    claimed = {}
     with tempfile.TemporaryDirectory() as workdir:
         workdir = pathlib.Path(workdir)
         for slug in projects():
-            registered, spec = entry(slug), values(slug)
+            registered = entry(slug)
             kind = registered["deploy"]["kind"] if registered else None
             if kind == "pages":
-                problems.extend(f"deploy/{slug}: unknown field {key}" for key in set(spec) - {"enabled", "tag"})
+                problems.extend(f"deploy/{slug}: unknown field {key}" for key in set(values(slug)) - {"enabled", "tag"})
                 continue
-            if kind != "compose":
-                problems.append(f"deploy/{slug}: projects/{slug}.yml must declare deploy.kind compose or pages")
+            if kind != "compose" or not compose_project(slug):
+                problems.append(f"deploy/{slug}: needs core.yaml and deploy.kind compose in projects/{slug}.yml, or deploy.kind pages")
+                continue
+            try:
+                project = spec(slug)
+            except (ValueError, OSError) as error:
+                problems.append(f"deploy/{slug}: {error}")
                 continue
 
             charts = []
-            if released(spec.get("core", "")):
-                charts.append(chart_at(spec["core"], workdir))
-            if spec.get("core") == version:
+            if released(project["core"]):
+                charts.append(chart_at(project["core"], workdir))
+            if project["core"] == version:
                 charts.append(CHART)
             if not charts:
-                problems.append(f"deploy/{slug}: core {spec.get('core')} is not released")
+                problems.append(f"deploy/{slug}: core {project['core']} is not released")
                 continue
 
+            rendered = None
             for index, chart in enumerate(charts):
                 try:
-                    compose, _ = render(slug, chart, workdir / f"{slug}-{index}")
+                    compose, _ = render(slug, project, chart, workdir / f"{slug}-{index}")
                     run("docker", "compose", "-f", str(compose), "config", "--quiet", "--no-interpolate", capture=True)
+                    rendered = compose.read_text(encoding="utf-8")
                 except subprocess.CalledProcessError as error:
                     problems.append(f"deploy/{slug}: {(error.stderr or error.stdout).strip()}")
+            if rendered is None:
+                continue
 
-            declared = set(spec.get("secrets", []))
-            for name, service in spec.get("services", {}).items():
-                for key, value in service.get("env", {}).items():
-                    problems.extend(
-                        f"deploy/{slug}: services.{name}.env.{key} uses ${{{reference}}} without a default; add {reference} to secrets"
-                        for reference in REFERENCE.findall(str(value))
-                        if reference not in declared
-                    )
+            problems.extend(
+                f"deploy/{slug}: ${{{name}}} has no default; add {name} to a service's secrets"
+                for name in sorted(set(REFERENCE.findall(rendered)) - set(required(project)))
+            )
+            for host in [registered["deploy"].get("host"), *hosts(project)]:
+                if host in claimed:
+                    problems.append(f"deploy/{slug}: {host} is already used by {claimed[host]}")
+                claimed[host] = slug
+            if project.get("sleep", {}).get("after") and any(service.get("jobs") for service in project["services"].values()):
+                problems.append(f"deploy/{slug}: a sleeping project can't run jobs; its containers are stopped when they are due")
 
-            services = spec.get("services", {}).values()
-            limit = sum(mebibytes(service["resources"]["memory"]) for service in services)
-            reserve = sum(mebibytes(service["resources"].get("reserve", "0M")) for service in services)
-            rows.append((slug, limit, reserve, enabled(spec)))
+            limits = reserves = 0
+            for service in yaml.safe_load(rendered)["services"].values():
+                resources = service["deploy"]["resources"]
+                limits += mebibytes(resources["limits"]["memory"])
+                reserves += mebibytes(resources.get("reservations", {}).get("memory", "0M"))
+            rows.append((slug, limits, reserves, project["enabled"]))
 
     host = load(DEPLOY / "host.yaml")
     budget = mebibytes(host["memory"]) - mebibytes(host["system"])

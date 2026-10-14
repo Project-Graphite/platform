@@ -1,9 +1,11 @@
 {{- $values := .Values -}}
-{{- $public := include "core.public" . | fromJson -}}
+{{- $public := include "core.public" . -}}
 {{- if $values.host }}
-{{- if ne (len $public) 1 }}{{ fail "exactly one service must set public: true" }}{{ end }}
-{{- $service := first (values $public) }}
-{{- if not $service.port }}{{ fail "the public service must set port" }}{{ end }}
+{{- if not $public }}{{ fail "no service gets the hostname: give one service a port, or set public: true on one of them" }}{{ end }}
+{{- $services := include "core.services" . | fromJson }}
+{{- $service := index $services $public }}
+{{- if not $service.port }}{{ fail (printf "%s gets the hostname, so it must set port" $public) }}{{ end }}
+{{- $hosted := (include "core.hosted" . | fromJson).names }}
 http:
   routers:
     {{ $values.slug }}:
@@ -15,11 +17,30 @@ http:
       {{- if $values.sleep.after }}
       middlewares: [{{ $values.slug }}-sleep]
       {{- end }}
+    {{- range $name := $hosted }}
+    {{- range $index, $host := (index $services $name).hosts }}
+    {{ printf "%s-%s-%d" $values.slug $name $index }}:
+      rule: {{ printf "Host(`%s`)" $host | quote }}
+      entryPoints: [websecure]
+      service: {{ printf "%s-%s" $values.slug $name }}
+      tls:
+        certResolver: letsencrypt
+      {{- if $values.sleep.after }}
+      middlewares: [{{ $values.slug }}-sleep]
+      {{- end }}
+    {{- end }}
+    {{- end }}
   services:
     {{ $values.slug }}:
       loadBalancer:
         servers:
           - url: {{ printf "http://%s:%v" $values.slug $service.port | quote }}
+    {{- range $name := $hosted }}
+    {{ printf "%s-%s" $values.slug $name }}:
+      loadBalancer:
+        servers:
+          - url: {{ printf "http://%s-%s:%v" $values.slug $name (index $services $name).port | quote }}
+    {{- end }}
   {{- if $values.sleep.after }}
   middlewares:
     {{ $values.slug }}-sleep:

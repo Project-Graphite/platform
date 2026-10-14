@@ -28,6 +28,9 @@ def targets():
         folder = ROOT / "deploy" / path.stem
         if deploy.get("kind") in ("compose", "pages") and folder.is_dir() and (load(folder / "values.yaml") or {}).get("enabled", True):
             yield deploy["host"], "/"
+            for service in ((load(folder / "core.yaml") or {}).get("services") or {}).values():
+                for host in (service or {}).get("hosts", []):
+                    yield host, "/"
     yield DEPLOY_HOST, "/healthz"
 
 

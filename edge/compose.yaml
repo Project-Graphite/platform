@@ -18,6 +18,9 @@ services:
       - letsencrypt:/letsencrypt
     networks: [edge]
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "5"}
     security_opt:
       - no-new-privileges:true
     deploy:
@@ -44,6 +47,9 @@ services:
       retries: 12
       start_period: 5s
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "5"}
     deploy:
       resources:
         limits:
