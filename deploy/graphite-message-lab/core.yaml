@@ -12,7 +12,7 @@ services:
     image: ghcr.io/project-graphite/graphite-message-lab/web
     command: [sh, -c, "python manage.py migrate --noinput && exec gunicorn -c python:config.gunicorn config.wsgi"]
     port: 8000
-    health: {path: /up/databases, startPeriod: 20s}
+    health: {test: [CMD, curl, --fail, "http://localhost:8000/up/databases"], startPeriod: 20s}
     stopGracePeriod: 10s
 
   worker:
