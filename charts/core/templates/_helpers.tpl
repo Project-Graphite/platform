@@ -132,6 +132,14 @@ reserve: {{ . }}
 {{- toJson $all -}}
 {{- end -}}
 
+{{- define "core.hosted" -}}
+{{- $names := list -}}
+{{- range $name, $service := (include "core.services" . | fromJson) -}}
+{{- if $service.hosts }}{{ if not $service.port }}{{ fail (printf "%s sets hosts, so it must set port" $name) }}{{ end }}{{ $names = append $names $name }}{{ end -}}
+{{- end -}}
+{{- toJson (dict "names" $names) -}}
+{{- end -}}
+
 {{- define "core.public" -}}
 {{- $services := include "core.services" . | fromJson -}}
 {{- $marked := list -}}

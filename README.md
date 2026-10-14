@@ -93,6 +93,21 @@ name; `optional` names are passed when present. `env` holds plain settings, and 
 `secrets`. `files` mounts a file from `deploy/<slug>/files/`. With several ported services, set
 `public: true` on the one that gets the hostname.
 
+A service can answer on more hostnames with `hosts: [api.<slug>.project-graphite.com]`; Deploy
+points each at the VPS and routes it to that service's `port`, and **PR** fails when a hostname is
+outside `project-graphite.com` or already used. `jobs` runs commands inside a running service on a
+cron schedule, in UTC:
+
+```yaml
+worker:
+  image: ghcr.io/project-graphite/<repo>/worker
+  jobs:
+    - {name: nightly, schedule: "0 3 * * *", command: [python, -m, reports]}
+```
+
+The edge's scheduler (Ofelia) runs them with `docker exec`, as root unless the job sets `user`. A
+sleeping project can't have jobs, since its containers are stopped when they fall due.
+
 An image with `:` or `@` is used as written. Any other image gets `tag`, else the tag in
 `tags/<slug>.json`, else `latest`. To roll back, set `<service>: {tag: sha-1a2b3c4}` in
 `values.yaml`.

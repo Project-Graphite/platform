@@ -18,6 +18,10 @@ sleep: {}              # after: 30m stops the project after that long without re
 #   image        required; the tag comes from tags/<slug>.json unless the image names one or tag: is set
 #   port         the port it listens on; with one port in the project, that service gets the hostname
 #   public       true picks the service that gets the hostname when several have a port
+#   hosts        more hostnames for this service, e.g. [api.orbit.project-graphite.com]; needs port
+#   jobs         [{name: nightly, schedule: "0 3 * * *", command: [python, -m, reports]}] runs the
+#                command inside this running container on a cron schedule (UTC; user: to change
+#                the user, root by default); not for sleeping projects
 #   health       an HTTP path on port, e.g. /health (checked with wget, then curl), or
 #                {test: [CMD, ...], interval: 30s, timeout: 5s, retries: 3, startPeriod: 0s}
 #   env          plain settings; ${NAME} and ${NAME:-default} read the secrets file

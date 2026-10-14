@@ -3,6 +3,7 @@ import json
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -74,6 +75,14 @@ def required(project):
     if project.get("redis", {}).get("password"):
         names.add("REDIS_PASSWORD")
     return sorted(names)
+
+
+def hosts(project):
+    return [host for service in project["services"].values() for host in service.get("hosts", [])]
+
+
+def ofelia(schedule):
+    return schedule if schedule.startswith("@") else f"0 {schedule}"
 
 
 def tags(slug):
@@ -218,8 +227,9 @@ def deploy_compose(slug):
             "require": required(project),
         }))
     host = entry(slug)["deploy"]["host"]
-    cloudflare.point_at_vps(host, project.get("proxied", False))
-    print(f"Deployed {slug} at https://{host}.")
+    for name in [host, *hosts(project)]:
+        cloudflare.point_at_vps(name, project.get("proxied", False))
+    print(f"Deployed {slug} at {', '.join(f'https://{name}' for name in [host, *hosts(project)])}.")
 
 
 def take_down(slug):
@@ -241,15 +251,26 @@ def deploy_wake():
     jobs = []
     for slug in filter(compose_project, projects()):
         project = spec(slug)
+        if not project["enabled"]:
+            continue
+        for service_name, service in project["services"].items():
+            for job in service.get("jobs", []):
+                jobs.append(
+                    f'[job-exec "{slug}-{service_name}-{job["name"]}"]\n'
+                    f"schedule = {ofelia(job['schedule'])}\n"
+                    f"container = {slug}-{service_name}-1\n"
+                    f"command = {shlex.join(job['command'])}\n"
+                    + (f"user = {job['user']}\n" if job.get("user") else "")
+                )
         sleep = project.get("sleep", {})
-        if project["enabled"] and sleep.get("wake"):
+        if sleep.get("wake"):
             url = (
                 f"http://sablier:10000/api/strategies/blocking?group={slug}"
                 f"&session_duration={sleep.get('wakeFor', '15m')}&timeout=5m"
             )
             jobs.append(
                 f'[job-run "wake-{slug}"]\n'
-                f"schedule = {sleep['wake']}\n"
+                f"schedule = {ofelia(sleep['wake'])}\n"
                 f"image = {CURL}\n"
                 "network = edge\n"
                 f"command = -fsS -o /dev/null --max-time 360 {url}\n"
@@ -313,6 +334,7 @@ def check():
     ).returncode:
         problems.append(f"charts/core changed but core {version} is already released; bump charts/core/Chart.yaml")
 
+    claimed = {}
     with tempfile.TemporaryDirectory() as workdir:
         workdir = pathlib.Path(workdir)
         for slug in projects():
@@ -354,6 +376,12 @@ def check():
                 f"deploy/{slug}: ${{{name}}} has no default; add {name} to a service's secrets"
                 for name in sorted(set(REFERENCE.findall(rendered)) - set(required(project)))
             )
+            for host in [registered["deploy"].get("host"), *hosts(project)]:
+                if host in claimed:
+                    problems.append(f"deploy/{slug}: {host} is already used by {claimed[host]}")
+                claimed[host] = slug
+            if project.get("sleep", {}).get("after") and any(service.get("jobs") for service in project["services"].values()):
+                problems.append(f"deploy/{slug}: a sleeping project can't run jobs; its containers are stopped when they are due")
 
             limits = reserves = 0
             for service in yaml.safe_load(rendered)["services"].values():

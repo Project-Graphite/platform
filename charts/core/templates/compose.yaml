@@ -36,11 +36,17 @@ services:
     expose:
       - {{ toString . | toRawJson }}
     {{- end }}
-    {{- if eq $name $public }}
+    {{- if or (eq $name $public) $service.hosts }}
     networks:
       default: {}
       edge:
-        aliases: [{{ $values.slug }}]
+        aliases:
+          {{- if eq $name $public }}
+          - {{ $values.slug }}
+          {{- end }}
+          {{- if $service.hosts }}
+          - {{ printf "%s-%s" $values.slug $name }}
+          {{- end }}
     {{- end }}
     {{- with $service.volumes }}
     volumes:
@@ -120,7 +126,7 @@ configs:
     content: {{ replace "$" "$$" .content | toRawJson }}
   {{- end }}
 {{- end }}
-{{- if $public }}
+{{- if or $public (include "core.hosted" . | fromJson).names }}
 
 networks:
   edge:
