@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import urllib.request
 
 import yaml
@@ -215,11 +216,22 @@ def show_plan():
         print(f"{key}={json.dumps(value)}")
 
 
+def start(payload):
+    try:
+        return agent.send(payload)
+    except SystemExit as error:
+        if "curl: (22)" not in str(error):
+            raise
+        print("Sablier had not picked up the new containers yet; trying again in 20 seconds.")
+        time.sleep(20)
+        return agent.send(payload)
+
+
 def deploy_compose(slug):
     project = spec(slug)
     with tempfile.TemporaryDirectory() as workdir:
         compose, route = render(slug, project, chart_at(project["core"], pathlib.Path(workdir)), pathlib.Path(workdir) / "out")
-        print(agent.send({
+        print(start({
             "name": slug,
             "action": "up",
             "files": {"compose.yaml": compose.read_text(encoding="utf-8"), "sleep": project.get("sleep", {}).get("after")},
