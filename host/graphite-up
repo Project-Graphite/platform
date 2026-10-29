@@ -6,6 +6,7 @@ cd "/srv/graphite/$name"
 touch secrets.env
 chmod 600 secrets.env
 docker compose -p "$name" --env-file secrets.env up -d --wait --wait-timeout 300 --remove-orphans
+docker image prune -af --filter until=24h >/dev/null || echo "graphite-up: image prune failed" >&2
 
 if [ -f sleep ]; then
   curl -fsS -o /dev/null --max-time 90 \
