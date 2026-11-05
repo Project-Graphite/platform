@@ -6,7 +6,7 @@ import deploy
 REFERENCE = re.compile(r"(?<![$])[$][{]([^}]*)[}]")
 SHAPE = re.compile(r"[A-Z_][A-Z0-9_]*(?::?[?].*|:-.*)")
 DEFAULT = re.compile(r"(?<![$])[$][{]([A-Z_][A-Z0-9_]*):-([^}]*)[}]")
-IMAGE = re.compile(r"^\s*image:\s*(ghcr\.io/\S+)\s*$", re.MULTILINE)
+IMAGE = re.compile(r'"image":\s*"(ghcr\.io/[^"]+)"')
 SUPPLIED = {"PROJECT", "HOST"}
 
 

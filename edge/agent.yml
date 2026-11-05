@@ -1,7 +1,7 @@
 http:
   routers:
     agent:
-      rule: Host(`deploy.project-graphite.com`)
+      rule: Host(`deploy.project-graphite.com`) && (Path(`/deploy`) || Path(`/healthz`))
       entryPoints: [websecure]
       service: agent
       tls:

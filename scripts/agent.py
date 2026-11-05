@@ -33,10 +33,3 @@ def send(payload, attempts=6):
                 raise SystemExit(f"error: could not reach the deploy agent: {error}") from error
             print(f"The deploy agent is not reachable yet ({error}); retrying ({attempt}/{attempts}).", file=sys.stderr)
             time.sleep(10)
-
-
-if __name__ == "__main__":
-    if len(sys.argv) != 3 or sys.argv[1] != "secrets":
-        print("usage: agent.py secrets <name> < secrets.env", file=sys.stderr)
-        sys.exit(1)
-    print(send({"name": sys.argv[2], "action": "secrets", "secrets": sys.stdin.read()}))

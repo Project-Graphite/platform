@@ -73,7 +73,7 @@ def compose(slug, *args, env=()):
 
 
 def flatten(slug):
-    return compose(slug, "config", "--no-interpolate").replace(str(DEPLOY / slug) + os.sep, "./")
+    return compose(slug, "config", "--no-interpolate", "--format", "json").replace(str(DEPLOY / slug) + os.sep, "./")
 
 
 def required(text):
@@ -91,12 +91,12 @@ def route(slug, config):
     host = entry(slug)["deploy"]["host"]
     for service in config["services"].values():
         if slug in (((service.get("networks") or {}).get("edge") or {}).get("aliases") or []):
-            return yaml.safe_dump({
+            return json.dumps({
                 "http": {
                     "routers": {slug: {"rule": f"Host(`{host}`)", "entryPoints": ["websecure"], "service": slug, "tls": {"certResolver": "letsencrypt"}}},
                     "services": {slug: {"loadBalancer": {"servers": [{"url": f"http://{slug}:{service['expose'][0]}"}]}}},
                 }
-            }, sort_keys=False)
+            }, indent=2)
     raise ValueError(f"deploy/{slug}: no service joins the edge network as {slug}")
 
 

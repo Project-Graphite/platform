@@ -15,12 +15,13 @@ services:
     privileged: true
     pid: host
     volumes: [/var/run/docker.sock:/var/run/docker.sock, data:/data]
+    labels: {graphite.backup.volumes: data}
     healthcheck:
       test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
       start_period: 10s
 
 volumes:
-  data: {labels: {graphite.backup: "true"}}
+  data: {}
 
 networks:
   edge: {external: true}
