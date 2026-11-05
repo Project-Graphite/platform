@@ -12,6 +12,9 @@ services:
       ACCESS_AUD: ${ACCESS_AUD:?}
       ALERTS_TOKEN: ${ALERTS_TOKEN:-}
       SECRETS_KEY: ${SECRETS_KEY:-}
+      SMTP_URL: ${SMTP_URL:-}
+      ALERTS_EMAIL: ${ALERTS_EMAIL:-}
+      ALERTS_FROM: ${ALERTS_FROM:-}
     privileged: true
     pid: host
     volumes: [/var/run/docker.sock:/var/run/docker.sock, data:/data]
