@@ -48,7 +48,8 @@ def hub_address():
 def health(host):
     started = time.monotonic()
     try:
-        with urllib.request.urlopen(f"https://{host}/", timeout=10) as response:
+        probe = urllib.request.Request(f"https://{host}/", headers={"User-Agent": "project-graphite-deploy-report"})
+        with urllib.request.urlopen(probe, timeout=10) as response:
             status = response.status
     except urllib.error.HTTPError as error:
         status = error.code
