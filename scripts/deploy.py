@@ -65,7 +65,8 @@ def compose(slug, *args, env=()):
             path.write_text(env_file(pairs), encoding="utf-8")
             options += ["--env-file", str(path)]
         command = ["docker", "compose", "-p", slug, "-f", str(DEPLOY / slug / "compose.yaml"), *options, *args]
-        result = subprocess.run(command, text=True, capture_output=True)
+        supplied = {name for pairs in env for name in pairs}
+        result = subprocess.run(command, text=True, capture_output=True, env={name: value for name, value in os.environ.items() if name not in supplied})
     if result.returncode:
         raise ValueError(f"deploy/{slug}: {result.stderr.strip()}")
     return result.stdout
