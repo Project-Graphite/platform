@@ -17,7 +17,7 @@ services:
       ALERTS_FROM: ${ALERTS_FROM:-}
     privileged: true
     pid: host
-    volumes: [/var/run/docker.sock:/var/run/docker.sock, data:/data]
+    volumes: [/var/run/docker.sock:/var/run/docker.sock, data:/data, logs:/logs]
     labels: {graphite.backup.volumes: data}
     healthcheck:
       test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
@@ -25,6 +25,7 @@ services:
 
 volumes:
   data: {}
+  logs: {}
 
 networks:
   edge: {external: true}

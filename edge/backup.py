@@ -4,6 +4,7 @@ import hashlib
 import http.client
 import io
 import json
+import math
 import os
 import pathlib
 import shutil
@@ -20,8 +21,7 @@ ROOT = pathlib.Path(os.environ.get("BACKUP_ROOT", "/backups"))
 VOLUMES = pathlib.Path(os.environ.get("VOLUMES_ROOT", "/volumes"))
 REQUESTS = ROOT / ".requests"
 WORK = ROOT / ".work"
-KEEP_DAYS = int(os.environ.get("KEEP_DAYS", "14"))
-HOUR = int(os.environ.get("BACKUP_HOUR", "3"))
+SCHEDULE = {"enabled": True, "everyHours": 24, "hour": 3, "keepDays": 14}
 STAMP = "%Y%m%dT%H%M%SZ"
 SQLITE = b"SQLite format 3\x00"
 SIDECARS = ("-journal", "-wal", "-shm")
@@ -246,8 +246,22 @@ def backup(project, found, now):
     return summary
 
 
+def schedule():
+    try:
+        saved = json.loads((ROOT / ".schedule.json").read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        saved = {}
+    return {**SCHEDULE, **saved}
+
+
+def next_run(plan, after):
+    period = plan["everyHours"] * 3600
+    anchor = plan["hour"] * 3600
+    return datetime.datetime.fromtimestamp(anchor + math.ceil((after.timestamp() - anchor) / period) * period, datetime.UTC)
+
+
 def prune(now):
-    cutoff = now - datetime.timedelta(days=KEEP_DAYS)
+    cutoff = now - datetime.timedelta(days=schedule()["keepDays"])
     for path in ROOT.glob("*/*.tar"):
         try:
             stamp = datetime.datetime.strptime(path.stem, STAMP).replace(tzinfo=datetime.UTC)
@@ -380,9 +394,8 @@ def handle(request):
     log(f"{order['action']} {order.get('project')}: {'done' if result['ok'] else 'FAILED: ' + result['output']}")
 
 
-def next_nightly(now):
-    today = now.replace(hour=HOUR, minute=0, second=0, microsecond=0)
-    return today if now < today else today + datetime.timedelta(days=1)
+def due(plan, last, now):
+    return plan["enabled"] and next_run(plan, last + datetime.timedelta(milliseconds=1)) <= now
 
 
 def serve():
@@ -391,14 +404,16 @@ def serve():
     for interrupted in REQUESTS.glob("*.running"):
         interrupted.with_suffix(".result").write_text(json.dumps({**json.loads(interrupted.read_text(encoding="utf-8")), "ok": False, "output": "interrupted by a restart"}), encoding="utf-8")
         interrupted.unlink()
-    due = next_nightly(datetime.datetime.now(datetime.UTC))
-    log(f"waiting for requests; the nightly run is at {due:%Y-%m-%d %H:%M}Z")
+    last = datetime.datetime.now(datetime.UTC)
+    plan = schedule()
+    log(f"waiting for requests; the next scheduled run is at {next_run(plan, last):%Y-%m-%d %H:%M}Z" if plan["enabled"] else "waiting for requests; scheduled runs are off")
     while True:
         for request in sorted(REQUESTS.glob("*.request")):
             handle(request)
-        if datetime.datetime.now(datetime.UTC) >= due:
+        now = datetime.datetime.now(datetime.UTC)
+        if due(schedule(), last, now):
             run()
-            due = next_nightly(datetime.datetime.now(datetime.UTC))
+        last = now
         time.sleep(5)
 
 
