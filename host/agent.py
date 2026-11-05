@@ -13,7 +13,7 @@ TOKEN = os.environ["DEPLOY_TOKEN"].encode()
 CONSOLE_TOKEN = os.environ.get("CONSOLE_TOKEN", "").encode()
 ENV = pathlib.Path("/etc/graphite")
 NAME = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$")
-FILES = {"compose.yaml", "traefik.yml", "ofelia.ini", "sleep"}
+FILES = re.compile(r"^(compose\.yaml|traefik\.yml|values|files/[A-Za-z0-9._-]+)$")
 SKEW = 300
 
 
@@ -51,22 +51,25 @@ def keys(path):
     return {line.split("=", 1)[0] for line in path.read_text(encoding="utf-8").splitlines() if "=" in line}
 
 
+def compose_options(name):
+    values = BASE / name / "values"
+    return [*(["--env-file", str(values)] if values.exists() else []), "--env-file", str(env_file(name))]
+
+
 def up(name, request):
     folder = BASE / name
-    unknown = sorted(set(request.get("files", {})) - FILES)
+    unknown = sorted(file for file in request.get("files", {}) if not FILES.match(file))
     if unknown:
         raise ValueError(f"{', '.join(unknown)} is not a file the agent writes")
+    missing = sorted(set(request.get("require", [])) - keys(env_file(name)))
+    if missing:
+        raise LookupError(f"{name} is waiting on secrets: {', '.join(missing)}")
     for file, content in request.get("files", {}).items():
         if content is None:
             (folder / file).unlink(missing_ok=True)
         else:
             write(folder / file, content)
-    missing = sorted(set(request.get("require", [])) - keys(env_file(name)))
-    if missing:
-        raise LookupError(f"{name} is waiting on secrets: {', '.join(missing)}")
     output = run(str(BASE / "bin" / "graphite-up"), name)
-    if request.get("restart"):
-        output += run("docker", "compose", "--project-directory", str(folder), "-p", name, "restart")
     if "route" in request:
         route = BASE / "edge" / "routes" / f"{name}.yml"
         if request["route"] is None:
@@ -79,13 +82,9 @@ def up(name, request):
 def down(name):
     folder = BASE / name
     (BASE / "edge" / "routes" / f"{name}.yml").unlink(missing_ok=True)
-    (folder / "sleep").unlink(missing_ok=True)
     if not (folder / "compose.yaml").exists():
         return f"{name} is not deployed."
-    return run(
-        "docker", "compose", "--project-directory", str(folder), "-p", name,
-        "--env-file", str(env_file(name)), "down", "--remove-orphans",
-    )
+    return run("docker", "compose", "--project-directory", str(folder), "-p", name, *compose_options(name), "down", "--remove-orphans")
 
 
 def reapply(name):

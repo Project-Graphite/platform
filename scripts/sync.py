@@ -1,5 +1,4 @@
 import json
-import os
 import pathlib
 import re
 import sys
@@ -11,43 +10,18 @@ import yaml
 import validate
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-ORGANIZATION = "Project-Graphite"
 SLUG = json.loads((ROOT / "schema" / "project.schema.json").read_text(encoding="utf-8"))["properties"]["slug"]["pattern"]
 
 
-def request(path, accept="application/vnd.github+json"):
-    token = os.environ.get("GH_TOKEN")
-    if not token:
-        raise RuntimeError("GH_TOKEN is required")
-    return urllib.request.Request(
-        f"https://api.github.com{path}",
-        headers={
-            "Accept": accept,
-            "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "project-graphite-registry-sync",
-        },
-    )
-
-
 def repositories():
-    page = 1
-    while True:
-        with urllib.request.urlopen(
-            request(f"/orgs/{ORGANIZATION}/repos?type=all&per_page=100&page={page}")
-        ) as response:
-            entries = json.load(response)
-        yield from entries
-        if len(entries) < 100:
-            return
-        page += 1
+    return validate.paginate(f"/orgs/{validate.ORGANIZATION}/repos?type=all")
 
 
 def manifest(repository):
     try:
         with urllib.request.urlopen(
-            request(
-                f"/repos/{ORGANIZATION}/{repository}/contents/.graphite.yml",
+            validate.request(
+                f"/repos/{validate.ORGANIZATION}/{repository}/contents/.graphite.yml",
                 "application/vnd.github.raw+json",
             )
         ) as response:
@@ -66,7 +40,7 @@ def entries(projects):
     return [(ROOT / "projects" / f"{slug}.yml", project) for slug, project in sorted(projects.items())]
 
 
-def apply(name, text, projects, organisation, people):
+def apply(name, text, projects, organisation, members):
     try:
         source = yaml.safe_load(text)
     except yaml.YAMLError as error:
@@ -103,9 +77,9 @@ def apply(name, text, projects, organisation, people):
         for slug, project in projects.items()
         if not (isinstance(project, dict) and project.get("repo") == repo)
     } | candidates
-    existing = set(validate.registry_problems(entries(projects), people))
+    existing = set(validate.registry_problems(entries(projects), members))
     problems.extend(
-        line for line in validate.registry_problems(entries(updated), people) if line not in existing
+        line for line in validate.registry_problems(entries(updated), members) if line not in existing
     )
     return updated, problems
 
@@ -115,25 +89,10 @@ def report(name, problems):
         print(f"error: {name}: {line}", file=sys.stderr)
 
 
-def check(name, path):
-    _, problems = apply(
-        name,
-        pathlib.Path(path).read_text(encoding="utf-8"),
-        registry(),
-        {repository["name"].lower() for repository in repositories()},
-        validate.load("people"),
-    )
-    report(name, problems)
-    if problems:
-        return 1
-    print(f"{path} is a valid manifest for {name}.")
-    return 0
-
-
 def sync():
     existing = registry()
     projects = existing
-    people = validate.load("people")
+    members = validate.members()
     listed = list(repositories())
     organisation = {repository["name"].lower() for repository in listed}
     skipped = []
@@ -142,7 +101,7 @@ def sync():
         text = manifest(repository["name"])
         if text is None:
             continue
-        updated, problems = apply(repository["name"], text, projects, organisation, people)
+        updated, problems = apply(repository["name"], text, projects, organisation, members)
         if problems:
             report(repository["name"], problems)
             skipped.append(repository["name"])
@@ -174,14 +133,5 @@ def sync():
     return 0
 
 
-def main():
-    if len(sys.argv) == 1:
-        return sync()
-    if len(sys.argv) == 3:
-        return check(*sys.argv[1:])
-    print("usage: sync.py [<repository> <manifest-path>]", file=sys.stderr)
-    return 1
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(sync())

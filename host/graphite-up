@@ -9,10 +9,9 @@ if [ ! -f "$env" ]; then
   touch secrets.env
   chmod 600 secrets.env
 fi
-docker compose -p "$name" --env-file "$env" up -d --wait --wait-timeout 300 --remove-orphans
-docker image prune -af --filter until=24h >/dev/null || echo "graphite-up: image prune failed" >&2
-
-if [ -f sleep ]; then
-  curl -fsS -o /dev/null --max-time 90 \
-    "http://127.0.0.1:10000/api/strategies/blocking?group=$name&session_duration=$(cat sleep)&timeout=1m"
+set --
+if [ -f values ]; then
+  set -- --env-file values
 fi
+docker compose -p "$name" "$@" --env-file "$env" up -d --wait --wait-timeout 300 --remove-orphans
+docker image prune -af --filter until=24h >/dev/null || echo "graphite-up: image prune failed" >&2

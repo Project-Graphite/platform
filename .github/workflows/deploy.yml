@@ -4,12 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - charts/core/**
       - deploy/**
       - edge/**
       - host/**
       - projects/**
-      - tags/**
+      - shared/**
   workflow_dispatch:
     inputs:
       project:
@@ -36,8 +35,6 @@ jobs:
   plan:
     name: Plan
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     outputs:
       pages: ${{ steps.plan.outputs.pages }}
     steps:
@@ -48,7 +45,6 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install pyyaml
-      - run: python scripts/deploy.py release-core
       - id: plan
         run: python scripts/deploy.py plan | tee -a "$GITHUB_OUTPUT"
 
@@ -66,9 +62,6 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install pyyaml
-      - uses: azure/setup-helm@v5
-        with:
-          version: v3.22.0
       - run: python scripts/deploy.py apply
         env:
           DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}

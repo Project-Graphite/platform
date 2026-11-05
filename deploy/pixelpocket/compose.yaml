@@ -1,0 +1,100 @@
+services:
+  frontend:
+    extends: {file: ../../shared/app.yaml, service: app}
+    image: ghcr.io/project-graphite/pixelpocket/frontend:${IMAGE_TAG:?}
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1:80/ || curl -fsS -o /dev/null http://127.0.0.1:80/"]
+      start_period: 10s
+    depends_on:
+      backend: {condition: service_healthy}
+
+  backend:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: ghcr.io/project-graphite/pixelpocket/backend:${IMAGE_TAG:?}
+    expose: ["5000"]
+    environment:
+      NODE_ENV: production
+      PORT: "5000"
+      DATABASE_LOCAL: mongodb://pixelpocket:${MONGO_PASSWORD:?}@mongo:27017/pixelpocket?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:?}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-90d}
+      JWT_COOKIE_EXPIRES_IN: ${JWT_COOKIE_EXPIRES_IN:-90}
+      FRONTEND_URL: https://${HOST}
+      EMAIL_HOST: ${EMAIL_HOST:?}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_FROM: ${EMAIL_FROM:?}
+      EMAIL_USERNAME: ${EMAIL_USERNAME:-}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:-}
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: pixelpocket
+      S3_ACCESS_KEY: pixelpocket-app
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1:5000/api/v1/users/session || curl -fsS -o /dev/null http://127.0.0.1:5000/api/v1/users/session"]
+      start_period: 20s
+    depends_on:
+      mongo: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
+
+  mongo:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: mongo:7
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: pixelpocket
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?}
+    volumes: [mongo-data:/data/db]
+    healthcheck:
+      test: [CMD-SHELL, "mongosh -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --quiet --eval \"db.adminCommand('ping')\""]
+      interval: 10s
+      retries: 10
+    deploy:
+      resources:
+        limits: {memory: 512M}
+        reservations: {memory: 128M}
+
+  minio:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: chainguard/minio@sha256:25bc63a89475bc494bfbce9bbeddb0421aece3f3968d77c809db5104d07b4545
+    command: [server, /data]
+    environment:
+      MINIO_ROOT_USER: pixelpocket-admin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+    volumes: [minio-data:/data]
+    configs:
+      - {source: minio-healthcheck, target: /scripts/healthcheck.sh}
+    healthcheck:
+      test: [CMD, bash, /scripts/healthcheck.sh]
+      interval: 10s
+      retries: 10
+
+  minio-init:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: chainguard/minio@sha256:25bc63a89475bc494bfbce9bbeddb0421aece3f3968d77c809db5104d07b4545
+    entrypoint: [bash, /scripts/init.sh]
+    restart: "no"
+    environment:
+      MINIO_ROOT_USER: pixelpocket-admin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+      S3_BUCKET: pixelpocket
+      S3_ACCESS_KEY: pixelpocket-app
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+    configs:
+      - {source: minio-init, target: /scripts/init.sh}
+    healthcheck: !reset {}
+    depends_on:
+      minio: {condition: service_healthy}
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 128M}
+        reservations: !reset {}
+
+volumes:
+  mongo-data: {}
+  minio-data: {}
+
+configs:
+  minio-healthcheck: {file: ./files/minio-healthcheck.sh}
+  minio-init: {file: ./files/minio-init.sh}
+
+networks:
+  edge: {external: true}

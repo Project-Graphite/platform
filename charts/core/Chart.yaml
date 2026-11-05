@@ -1,5 +1,0 @@
-apiVersion: v2
-name: core
-description: Renders a Project Graphite project (deploy/<slug>/core.yaml and values.yaml) into a Docker Compose project and its route.
-type: application
-version: 2.0.0

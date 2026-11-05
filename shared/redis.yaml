@@ -1,0 +1,14 @@
+services:
+  redis:
+    extends: {file: app.yaml, service: service}
+    image: redis:8.10-alpine
+    command: [redis-server, --appendonly, "yes", --maxmemory, "${REDIS_MAXMEMORY:-48mb}", --maxmemory-policy, "${REDIS_POLICY:-allkeys-lru}"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      retries: 10
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: "${REDIS_MEMORY:-64M}"}
+        reservations: {memory: "${REDIS_RESERVE:-16M}"}

@@ -1,0 +1,23 @@
+services:
+  backup:
+    image: python:3.14-alpine
+    command: [python, /app/backup.py]
+    environment:
+      KEEP_DAYS: "14"
+      BACKUP_HOUR: "3"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/volumes
+      - /var/lib/graphite/backups:/backups
+      - ./files/backup.py:/app/backup.py:ro
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "5"}
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
