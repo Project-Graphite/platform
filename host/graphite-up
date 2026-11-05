@@ -14,4 +14,5 @@ if [ -f values ]; then
   set -- --env-file values
 fi
 docker compose -p "$name" "$@" --env-file "$env" up -d --wait --wait-timeout 300 --remove-orphans
+touch .applied
 docker image prune -af --filter until=24h >/dev/null || echo "graphite-up: image prune failed" >&2
