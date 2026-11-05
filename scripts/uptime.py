@@ -1,7 +1,6 @@
 import http.client
 import json
 import os
-import pathlib
 import socket
 import ssl
 import sys
@@ -9,28 +8,18 @@ import time
 import urllib.error
 import urllib.request
 
-import yaml
+from deploy import DEPLOY_HOST, entry, projects, values
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
-DEPLOY_HOST = "deploy.project-graphite.com"
 LABEL = "alert"
 CERT_DAYS = 14
 RETRY_SECONDS = 30
 
 
-def load(path):
-    return yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else None
-
-
 def targets():
-    for path in sorted((ROOT / "projects").glob("*.yml")):
-        deploy = (load(path) or {}).get("deploy") or {}
-        folder = ROOT / "deploy" / path.stem
-        if deploy.get("kind") in ("compose", "pages") and folder.is_dir() and (load(folder / "values.yaml") or {}).get("enabled", True):
+    for slug in projects():
+        deploy = (entry(slug) or {}).get("deploy") or {}
+        if deploy.get("kind") in ("compose", "pages") and values(slug).get("ENABLED") != "false":
             yield deploy["host"], "/"
-            for service in ((load(folder / "core.yaml") or {}).get("services") or {}).values():
-                for host in (service or {}).get("hosts", []):
-                    yield host, "/"
     yield DEPLOY_HOST, "/healthz"
 
 
