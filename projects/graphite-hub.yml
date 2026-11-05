@@ -12,9 +12,5 @@ status: live
 listed: false
 
 deploy:
-  kind: pages
+  kind: compose
   host: project-graphite.com
-  source:
-    directory: site
-    output: dist
-    command: npm run build
