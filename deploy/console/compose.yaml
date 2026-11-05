@@ -15,6 +15,8 @@ services:
       SMTP_URL: ${SMTP_URL:-}
       ALERTS_EMAIL: ${ALERTS_EMAIL:-}
       ALERTS_FROM: ${ALERTS_FROM:-}
+      PLATFORM_APP_CLIENT_ID: ${PLATFORM_APP_CLIENT_ID:-}
+      PLATFORM_APP_PRIVATE_KEY: ${PLATFORM_APP_PRIVATE_KEY:-}
     privileged: true
     pid: host
     volumes: [/var/run/docker.sock:/var/run/docker.sock, data:/data, logs:/logs]
