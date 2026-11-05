@@ -1,0 +1,45 @@
+services:
+  app:
+    extends: {file: ../../shared/app.yaml, service: app}
+    image: ghcr.io/project-graphite/strata/app:${IMAGE_TAG:?}
+    environment:
+      NODE_ENV: production
+      AUTH_TRUSTED_ORIGINS: https://${HOST}
+      DATABASE_URL: postgresql://${PROJECT}:${POSTGRES_PASSWORD:?}@postgres:5432/${PROJECT}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${PROJECT}
+      POSTGRES_USER: ${PROJECT}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+      AUTH_ACCESS_TOKEN_SECRET: ${AUTH_ACCESS_TOKEN_SECRET:?}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?}
+      EMAIL_HOST: ${EMAIL_HOST:?}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:?}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+    volumes: [files-data:/data/files]
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1:3000/api/v1/health || curl -fsS -o /dev/null http://127.0.0.1:3000/api/v1/health"]
+      start_period: 20s
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  postgres:
+    extends: {file: ../../shared/postgres.yaml, service: postgres}
+
+  redis:
+    extends: {file: ../../shared/redis-password.yaml, service: redis}
+
+volumes:
+  files-data: {labels: {graphite.backup: "true"}}
+  postgres-data: {}
+  redis-data: {}
+
+networks:
+  edge: {external: true}

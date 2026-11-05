@@ -1,19 +1,45 @@
 import json
+import os
 import pathlib
 import sys
+import urllib.request
 
 import jsonschema
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+ORGANIZATION = "Project-Graphite"
+PROJECT = jsonschema.Draft202012Validator(json.loads((ROOT / "schema" / "project.schema.json").read_text(encoding="utf-8")))
 
 
-def validator_for(name):
-    return jsonschema.Draft202012Validator(json.loads((ROOT / "schema" / name).read_text(encoding="utf-8")))
+def request(path, accept="application/vnd.github+json"):
+    token = os.environ.get("GH_TOKEN")
+    if not token:
+        raise RuntimeError("GH_TOKEN is required")
+    return urllib.request.Request(
+        f"https://api.github.com{path}",
+        headers={
+            "Accept": accept,
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "project-graphite-registry-sync",
+        },
+    )
 
 
-PROJECT = validator_for("project.schema.json")
-PERSON = validator_for("person.schema.json")
+def paginate(path):
+    page = 1
+    while True:
+        with urllib.request.urlopen(request(f"{path}{'&' if '?' in path else '?'}per_page=100&page={page}")) as response:
+            entries = json.load(response)
+        yield from entries
+        if len(entries) < 100:
+            return
+        page += 1
+
+
+def members():
+    return {member["login"].lower() for member in paginate(f"/orgs/{ORGANIZATION}/members")}
 
 
 def load(directory):
@@ -63,16 +89,11 @@ def uniqueness_problems(entries, value_of, label):
         claimed[key] = path.name
 
 
-def ownership_problems(projects, people):
-    handles = {
-        person["handle"]
-        for _, person in people
-        if isinstance(person, dict) and isinstance(person.get("handle"), str)
-    }
+def ownership_problems(projects, organisation):
     for path, project in projects:
         owner = project.get("owner") if isinstance(project, dict) else None
-        if owner and isinstance(owner, str) and owner not in handles:
-            yield f"{path.name}: owner {owner} has no entry in people/"
+        if owner and isinstance(owner, str) and owner.lower() not in organisation:
+            yield f"{path.name}: owner {owner} is not a member of {ORGANIZATION}"
 
 
 def hierarchy_problems(projects):
@@ -102,17 +123,9 @@ def hierarchy_problems(projects):
             yield f"{path.name}: child project must use parent repository {parent.get('repo')}"
 
 
-def registry_problems(projects, people):
-    problems = [line for path, person in people for line in schema_problems(PERSON, path, person, "handle")]
-    problems.extend(line for path, project in projects for line in project_problems(path, project))
-    problems.extend(
-        uniqueness_problems(
-            people,
-            lambda person: person.get("github") if isinstance(person, dict) else None,
-            "github account",
-        )
-    )
-    problems.extend(ownership_problems(projects, people))
+def registry_problems(projects, organisation):
+    problems = [line for path, project in projects for line in project_problems(path, project)]
+    problems.extend(ownership_problems(projects, organisation))
     problems.extend(hierarchy_problems(projects))
     problems.extend(
         uniqueness_problems(
@@ -126,20 +139,15 @@ def registry_problems(projects, people):
 
 def main():
     projects = load("projects")
-    people = load("people")
-
     if not projects:
         print("No registry entries in projects/.", file=sys.stderr)
         return 1
-    if not people:
-        print("No entries in people/.", file=sys.stderr)
-        return 1
 
-    problems = registry_problems(projects, people)
+    problems = registry_problems(projects, members())
     for line in problems:
         print(f"error: {line}", file=sys.stderr)
 
-    print(f"Checked {len(people)} people and {len(projects)} projects, found {len(problems)} problems.")
+    print(f"Checked {len(projects)} projects, found {len(problems)} problems.")
     return 1 if problems else 0
 
 

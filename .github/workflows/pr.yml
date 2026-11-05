@@ -16,25 +16,28 @@ jobs:
         with:
           python-version: "3.14"
       - run: pip install pyyaml jsonschema
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ secrets.PLATFORM_APP_CLIENT_ID }}
+          private-key: ${{ secrets.PLATFORM_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
       - run: python scripts/validate.py
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
 
   deploy:
     name: Deploy values
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
       - run: pip install pyyaml
-      - uses: azure/setup-helm@v5
-        with:
-          version: v3.22.0
       - run: python scripts/deploy.py check
-        env:
-          BASE_REF: ${{ github.base_ref }}
+      - run: python scripts/check-memory.py
+      - run: python scripts/check-values.py
 
   secrets:
     name: Secrets

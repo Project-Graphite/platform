@@ -10,8 +10,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 BASE = pathlib.Path(os.environ.get("GRAPHITE_HOME", "/srv/graphite"))
 TOKEN = os.environ["DEPLOY_TOKEN"].encode()
+CONSOLE_TOKEN = os.environ.get("CONSOLE_TOKEN", "").encode()
+ENV = pathlib.Path("/etc/graphite")
 NAME = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$")
-FILES = {"compose.yaml", "traefik.yml", "ofelia.ini", "sleep"}
+FILES = re.compile(r"^(compose\.yaml|traefik\.yml|values|files/[A-Za-z0-9._-]+)$")
 SKEW = 300
 
 
@@ -38,28 +40,36 @@ def run(*command):
     return output
 
 
+def env_file(name):
+    path = ENV / f"{name}.env"
+    return path if path.exists() else BASE / name / "secrets.env"
+
+
 def keys(path):
     if not path.exists():
         return set()
     return {line.split("=", 1)[0] for line in path.read_text(encoding="utf-8").splitlines() if "=" in line}
 
 
+def compose_options(name):
+    values = BASE / name / "values"
+    return [*(["--env-file", str(values)] if values.exists() else []), "--env-file", str(env_file(name))]
+
+
 def up(name, request):
     folder = BASE / name
-    unknown = sorted(set(request.get("files", {})) - FILES)
+    unknown = sorted(file for file in request.get("files", {}) if not FILES.match(file))
     if unknown:
         raise ValueError(f"{', '.join(unknown)} is not a file the agent writes")
+    missing = sorted(set(request.get("require", [])) - keys(env_file(name)))
+    if missing:
+        raise LookupError(f"{name} is waiting on secrets: {', '.join(missing)}")
     for file, content in request.get("files", {}).items():
         if content is None:
             (folder / file).unlink(missing_ok=True)
         else:
             write(folder / file, content)
-    missing = sorted(set(request.get("require", [])) - keys(folder / "secrets.env"))
-    if missing:
-        raise LookupError(f"{name} is waiting on secrets: {', '.join(missing)}")
     output = run(str(BASE / "bin" / "graphite-up"), name)
-    if request.get("restart"):
-        output += run("docker", "compose", "--project-directory", str(folder), "-p", name, "restart")
     if "route" in request:
         route = BASE / "edge" / "routes" / f"{name}.yml"
         if request["route"] is None:
@@ -72,13 +82,15 @@ def up(name, request):
 def down(name):
     folder = BASE / name
     (BASE / "edge" / "routes" / f"{name}.yml").unlink(missing_ok=True)
-    (folder / "sleep").unlink(missing_ok=True)
     if not (folder / "compose.yaml").exists():
         return f"{name} is not deployed."
-    return run(
-        "docker", "compose", "--project-directory", str(folder), "-p", name,
-        "--env-file", str(folder / "secrets.env"), "down", "--remove-orphans",
-    )
+    return run("docker", "compose", "--project-directory", str(folder), "-p", name, *compose_options(name), "down", "--remove-orphans")
+
+
+def reapply(name):
+    if not (BASE / name / "compose.yaml").exists():
+        raise LookupError(f"{name} is not deployed")
+    return run(str(BASE / "bin" / "graphite-up"), name)
 
 
 def secrets(name, request):
@@ -103,13 +115,17 @@ class Agent(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        if self.path != "/deploy" or not signed(
-            self.headers.get("X-Graphite-Timestamp", ""), self.headers.get("X-Graphite-Signature", ""), body
-        ):
+        if self.path == "/reapply":
+            allowed = CONSOLE_TOKEN and hmac.compare_digest(self.headers.get("Authorization", "").encode(), b"Bearer " + CONSOLE_TOKEN)
+        else:
+            allowed = self.path == "/deploy" and signed(
+                self.headers.get("X-Graphite-Timestamp", ""), self.headers.get("X-Graphite-Signature", ""), body
+            )
+        if not allowed:
             self.reply(401, {"error": "unsigned or expired request"})
             return
         request = json.loads(body)
-        name, action = request.get("name", ""), request.get("action")
+        name, action = request.get("name", ""), "reapply" if self.path == "/reapply" else request.get("action")
         if not NAME.match(name):
             self.reply(400, {"error": f"{name!r} is not a project name"})
             return
@@ -120,6 +136,8 @@ class Agent(BaseHTTPRequestHandler):
                 output = down(name)
             elif action == "secrets":
                 output = secrets(name, request)
+            elif action == "reapply":
+                output = reapply(name)
             else:
                 self.reply(400, {"error": f"unknown action {action!r}"})
                 return

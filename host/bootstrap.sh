@@ -26,8 +26,9 @@ chmod 600 /srv/graphite/edge/secrets.env
 
 docker network inspect edge >/dev/null 2>&1 || docker network create edge
 bind="$(docker network inspect bridge -f '{{(index .IPAM.Config 0).Gateway}}')"
-printf 'DEPLOY_TOKEN=%s\nBIND=%s\n' "$DEPLOY_TOKEN" "$bind" > /etc/graphite-agent.env
-chmod 600 /etc/graphite-agent.env
+install -d -m 700 /etc/graphite
+printf 'DEPLOY_TOKEN=%s\nBIND=%s\n' "$DEPLOY_TOKEN" "$bind" > /etc/graphite/agent.env
+chmod 600 /etc/graphite/agent.env
 
 systemctl daemon-reload
 systemctl enable --now graphite-agent

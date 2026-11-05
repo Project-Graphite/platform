@@ -1,0 +1,47 @@
+services:
+  app:
+    extends: {file: ../../shared/app.yaml, service: app}
+    image: ghcr.io/project-graphite/graphite-tracker/app:${IMAGE_TAG:?}
+    environment:
+      AUTH_TRUSTED_ORIGINS: https://${HOST}
+      DATABASE_URL: postgresql://graphite:${POSTGRES_PASSWORD:?}@postgres:5432/graphite_tracker
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: graphite_tracker
+      POSTGRES_USER: graphite
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      REDIS_URL: redis://redis:6379
+      AUTH_ACCESS_TOKEN_SECRET: ${AUTH_ACCESS_TOKEN_SECRET:?}
+      GAME_SOURCE: ${GAME_SOURCE:-igdb}
+      DISABLED_SOURCES: ${DISABLED_SOURCES:-}
+      TMDB_READ_ACCESS_TOKEN: ${TMDB_READ_ACCESS_TOKEN:-}
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID:-}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET:-}
+      RAWG_API_KEY: ${RAWG_API_KEY:-}
+      EMAIL_HOST: ${EMAIL_HOST:?}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:?}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+    healthcheck:
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1:3000/api/v1/health || curl -fsS -o /dev/null http://127.0.0.1:3000/api/v1/health"]
+      start_period: 20s
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+
+  postgres:
+    extends: {file: ../../shared/postgres.yaml, service: postgres}
+    environment:
+      POSTGRES_DB: graphite_tracker
+      POSTGRES_USER: graphite
+
+  redis:
+    extends: {file: ../../shared/redis.yaml, service: redis}
+
+volumes:
+  postgres-data: {}
+  redis-data: {}
+
+networks:
+  edge: {external: true}
