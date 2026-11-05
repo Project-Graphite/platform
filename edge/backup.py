@@ -186,9 +186,12 @@ def targets():
     for container in docker("GET", filtered("/containers/json", label=["graphite.backup.postgres=true"])):
         project = container["Labels"].get("com.docker.compose.project", "other")
         found.setdefault(project, {"postgres": [], "volumes": []})["postgres"].append(container)
-    for volume in docker("GET", filtered("/volumes", label=["graphite.backup=true"]))["Volumes"] or []:
-        project = (volume.get("Labels") or {}).get("com.docker.compose.project", "other")
-        found.setdefault(project, {"postgres": [], "volumes": []})["volumes"].append(volume)
+    for container in docker("GET", filtered("/containers/json", label=["graphite.backup.volumes"])):
+        project = container["Labels"].get("com.docker.compose.project", "other")
+        volumes = found.setdefault(project, {"postgres": [], "volumes": []})["volumes"]
+        for name in filter(None, (part.strip() for part in container["Labels"]["graphite.backup.volumes"].split(","))):
+            if all(volume["Name"] != f"{project}_{name}" for volume in volumes):
+                volumes.append({"Name": f"{project}_{name}", "Labels": {"com.docker.compose.volume": name}})
     return found
 
 

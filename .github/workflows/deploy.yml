@@ -7,7 +7,6 @@ on:
       - deploy/**
       - edge/**
       - host/**
-      - projects/**
       - shared/**
   workflow_dispatch:
     inputs:
@@ -41,6 +40,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Allow automated pushes to change only image tags
+        if: github.event_name == 'push' && endsWith(github.actor, '[bot]')
+        run: |
+          set -euo pipefail
+          if ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            echo "::error::${GITHUB_ACTOR} pushed without a previous commit to compare against; deploy by hand after review."
+            exit 1
+          fi
+          files="$(git diff --name-only "$BEFORE" HEAD | grep -Ev '^deploy/[a-z0-9-]+/values$' || true)"
+          lines="$(git diff -U0 "$BEFORE" HEAD -- 'deploy/*/values' | grep -E '^[+-]' | grep -Ev '^(\+\+\+|---) ' | grep -Ev '^[+-]IMAGE_TAG=sha-[0-9a-f]{7,40}$' || true)"
+          if [ -n "$files" ] || [ -n "$lines" ]; then
+            echo "::error::${GITHUB_ACTOR} may change only IMAGE_TAG lines in deploy/*/values; refusing to deploy:"
+            printf '%s\n' "$files" "$lines"
+            exit 1
+          fi
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
