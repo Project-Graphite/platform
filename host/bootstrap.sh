@@ -14,13 +14,14 @@ id deploy >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/no
 
 install -d -o deploy -g deploy /srv/graphite /srv/graphite/bin /srv/graphite/edge /srv/graphite/edge/routes
 curl -fsSL -o /srv/graphite/bin/graphite-up "$source/host/graphite-up"
+curl -fsSL -o /srv/graphite/bin/graphite-report "$source/host/graphite-report"
 curl -fsSL -o /srv/graphite/bin/agent.py "$source/host/agent.py"
 curl -fsSL -o /srv/graphite/edge/compose.yaml "$source/edge/compose.yaml"
 curl -fsSL -o /srv/graphite/edge/traefik.yml "$source/edge/traefik.yml"
 curl -fsSL -o /srv/graphite/edge/routes/edge.yml "$source/edge/agent.yml"
 curl -fsSL -o /etc/systemd/system/graphite-agent.service "$source/host/graphite-agent.service"
 printf 'CF_DNS_API_TOKEN=%s\n' "$CF_DNS_API_TOKEN" > /srv/graphite/edge/secrets.env
-chmod 755 /srv/graphite/bin/graphite-up
+chmod 755 /srv/graphite/bin/graphite-up /srv/graphite/bin/graphite-report
 chown -R deploy:deploy /srv/graphite
 chmod 600 /srv/graphite/edge/secrets.env
 

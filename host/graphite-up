@@ -2,6 +2,8 @@
 set -eu
 
 name=$1
+started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+trap 'status=$?; /srv/graphite/bin/graphite-report "$name" "$started" "$status" || echo "graphite-up: rollout report failed" >&2; exit $status' EXIT
 cd "/srv/graphite/$name"
 env=/etc/graphite/$name.env
 if [ ! -f "$env" ]; then
