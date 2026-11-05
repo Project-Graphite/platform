@@ -10,6 +10,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 BASE = pathlib.Path(os.environ.get("GRAPHITE_HOME", "/srv/graphite"))
 TOKEN = os.environ["DEPLOY_TOKEN"].encode()
+CONSOLE_TOKEN = os.environ.get("CONSOLE_TOKEN", "").encode()
+ENV = pathlib.Path("/etc/graphite")
 NAME = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$")
 FILES = {"compose.yaml", "traefik.yml", "ofelia.ini", "sleep"}
 SKEW = 300
@@ -38,6 +40,11 @@ def run(*command):
     return output
 
 
+def env_file(name):
+    path = ENV / f"{name}.env"
+    return path if path.exists() else BASE / name / "secrets.env"
+
+
 def keys(path):
     if not path.exists():
         return set()
@@ -54,7 +61,7 @@ def up(name, request):
             (folder / file).unlink(missing_ok=True)
         else:
             write(folder / file, content)
-    missing = sorted(set(request.get("require", [])) - keys(folder / "secrets.env"))
+    missing = sorted(set(request.get("require", [])) - keys(env_file(name)))
     if missing:
         raise LookupError(f"{name} is waiting on secrets: {', '.join(missing)}")
     output = run(str(BASE / "bin" / "graphite-up"), name)
@@ -77,8 +84,14 @@ def down(name):
         return f"{name} is not deployed."
     return run(
         "docker", "compose", "--project-directory", str(folder), "-p", name,
-        "--env-file", str(folder / "secrets.env"), "down", "--remove-orphans",
+        "--env-file", str(env_file(name)), "down", "--remove-orphans",
     )
+
+
+def reapply(name):
+    if not (BASE / name / "compose.yaml").exists():
+        raise LookupError(f"{name} is not deployed")
+    return run(str(BASE / "bin" / "graphite-up"), name)
 
 
 def secrets(name, request):
@@ -103,13 +116,17 @@ class Agent(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
-        if self.path != "/deploy" or not signed(
-            self.headers.get("X-Graphite-Timestamp", ""), self.headers.get("X-Graphite-Signature", ""), body
-        ):
+        if self.path == "/reapply":
+            allowed = CONSOLE_TOKEN and hmac.compare_digest(self.headers.get("Authorization", "").encode(), b"Bearer " + CONSOLE_TOKEN)
+        else:
+            allowed = self.path == "/deploy" and signed(
+                self.headers.get("X-Graphite-Timestamp", ""), self.headers.get("X-Graphite-Signature", ""), body
+            )
+        if not allowed:
             self.reply(401, {"error": "unsigned or expired request"})
             return
         request = json.loads(body)
-        name, action = request.get("name", ""), request.get("action")
+        name, action = request.get("name", ""), "reapply" if self.path == "/reapply" else request.get("action")
         if not NAME.match(name):
             self.reply(400, {"error": f"{name!r} is not a project name"})
             return
@@ -120,6 +137,8 @@ class Agent(BaseHTTPRequestHandler):
                 output = down(name)
             elif action == "secrets":
                 output = secrets(name, request)
+            elif action == "reapply":
+                output = reapply(name)
             else:
                 self.reply(400, {"error": f"unknown action {action!r}"})
                 return
