@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Allow automated pushes to change only image tags
+      - name: Allow automated pushes to change only image tags and the enabled switch
         if: github.event_name == 'push' && endsWith(github.actor, '[bot]')
         run: |
           set -euo pipefail
@@ -49,9 +49,9 @@ jobs:
             exit 1
           fi
           files="$(git diff --name-only "$BEFORE" HEAD | grep -Ev '^deploy/[a-z0-9-]+/values$' || true)"
-          lines="$(git diff -U0 "$BEFORE" HEAD -- 'deploy/*/values' | grep -E '^[+-]' | grep -Ev '^(\+\+\+|---) ' | grep -Ev '^[+-]IMAGE_TAG=sha-[0-9a-f]{7,40}$' || true)"
+          lines="$(git diff -U0 "$BEFORE" HEAD -- 'deploy/*/values' | grep -E '^[+-]' | grep -Ev '^(\+\+\+|---) ' | grep -Ev '^[+-](IMAGE_TAG=sha-[0-9a-f]{7,40}|ENABLED=false)$' || true)"
           if [ -n "$files" ] || [ -n "$lines" ]; then
-            echo "::error::${GITHUB_ACTOR} may change only IMAGE_TAG lines in deploy/*/values; refusing to deploy:"
+            echo "::error::${GITHUB_ACTOR} may change only IMAGE_TAG and ENABLED=false lines in deploy/*/values; refusing to deploy:"
             printf '%s\n' "$files" "$lines"
             exit 1
           fi

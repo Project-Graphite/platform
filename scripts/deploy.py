@@ -149,7 +149,7 @@ def plan():
     for slug in chosen:
         registered = entry(slug)
         kind = registered["deploy"]["kind"] if registered else None
-        if not (DEPLOY / slug).is_dir():
+        if not (DEPLOY / slug).is_dir() or values(slug).get("ENABLED") == "false":
             if kind == "compose":
                 down.append(slug)
         elif kind == "compose" and compose_project(slug):
@@ -239,7 +239,7 @@ def check():
         kind = registered["deploy"]["kind"] if registered else None
         try:
             if kind == "pages":
-                problems.extend(f"deploy/{slug}/values: {name} is not used by a Pages site" for name in set(values(slug)) - {"IMAGE_TAG"})
+                problems.extend(f"deploy/{slug}/values: {name} is not used by a Pages site" for name in set(values(slug)) - {"IMAGE_TAG", "ENABLED"})
             elif kind == "compose" and compose_project(slug):
                 route(slug, render(slug)[0])
             else:
