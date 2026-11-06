@@ -1,0 +1,49 @@
+slug: maat
+kind: project
+name: Ma'at
+summary: 'Ma''at is a distributed online judge that runs untrusted C++ and Python code in locked-down
+  Docker sandboxes, with horizontally scalable workers, live verdicts over WebSockets, and contest leaderboards.
+
+  '
+tags:
+- javascript
+- mongodb
+- redis
+- react
+- nodejs
+- docker
+owner: omar-mohamed24
+authors:
+- Omar-Mohamed24
+status: wip
+listed: false
+pinned: false
+showcase:
+  problem: 'Practicing for programming contests usually means relying on big public judges, and building
+    your own for a class or a contest is hard because it means safely running untrusted code from strangers.
+    There was no simple self-hostable judge that isolates submissions, handles many at once and shows
+    results live.
+
+    '
+  approach: 'A distributed online judge named after the Egyptian goddess of truth and justice. A Node.js
+    and Express API stores submissions in MongoDB and queues them in Redis with BullMQ. Stateless workers
+    pull jobs and compile and run C++ and Python code in throwaway Docker sandboxes with no network, a
+    read-only filesystem, and capped CPU, memory and processes, then classify the verdict against hidden
+    test cases. Results reach a React frontend over WebSockets, and Redis sorted sets power live contest
+    leaderboards. Docker Compose and GitHub Actions CI/CD handle deployment.
+
+    '
+  outcome: 'Users submit code and see a verdict (Accepted, Wrong Answer, Time Limit, Memory Limit, Runtime
+    or Compile Error) within seconds, with no page refresh. Capacity scales by adding workers, and a k6
+    load test measured [X] submissions per minute with [N] workers. It hosted a contest for [N] real participants.
+
+    '
+  contributions:
+  - github: Omar-Mohamed24
+    summary: 'Built the whole platform: the sandboxed judge workers, the queue-based API, the React frontend
+      with live verdicts, and the CI/CD and Docker Compose deployment.
+
+      '
+deploy:
+  kind: none
+repo: project-graphite/Maat
