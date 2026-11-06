@@ -123,7 +123,7 @@ jobs:
           fi
 
           GH_TOKEN="$WORKFLOW_TOKEN" gh run watch "$run_id" --exit-status
-          gh pr merge "$pr" --squash --delete-branch --match-head-commit "$head_sha"
+          gh pr merge "$pr" --squash --admin --delete-branch --match-head-commit "$head_sha"
 
       - name: Report skipped manifests
         if: steps.sync.outcome == 'failure'
