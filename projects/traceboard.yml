@@ -13,13 +13,8 @@ tags:
 owner: amrmscll
 authors:
 - AmrMsCLL
-status: live
+status: archived
 listed: false
 deploy:
-  kind: pages
-  host: traceboard.project-graphite.com
-  source:
-    directory: site
-    output: dist
-    command: npm run build
+  kind: none
 repo: project-graphite/traceboard
