@@ -1,43 +1,54 @@
 # platform
 
-The control plane for Project Graphite: who the members are, what each project is, and how and
-where it runs. Every deployment happens from here.
+The control plane for Project Graphite: what each project is, and how and where it runs. Every
+deployment happens from here.
 
 | Path | What it holds | Written by |
 | :--- | :--- | :--- |
-| `people/<handle>.yml` | member profiles | registry sync, or by hand with `profile: manual` |
-| `projects/<slug>.yml` | the Hub card, host and deploy kind | registry sync from each `.graphite.yml` |
-| `deploy/<slug>/core.yaml` | what a project runs: its services and built-in components | contributors, by pull request |
-| `deploy/<slug>/values.yaml` | its settings: environment, secret names, memory | contributors, by pull request |
+| `projects/<slug>.yml` | the registry: the Hub card, host and deploy kind | the registry sync from each repository's `.graphite.yml` |
+| `schema/project.schema.json` | the one definition of a registry entry, used here and by the Hub | maintainers |
+| `deploy/<slug>/compose.yaml` | what a project runs, extending the fragments in `shared/` | contributors, by pull request |
+| `deploy/<slug>/values` | `IMAGE_TAG`, and only the settings that differ from a default | CI writes `IMAGE_TAG`; contributors the rest |
 | `deploy/<slug>/files/` | scripts and config files its services mount | contributors, by pull request |
-| `deploy/chart.yaml` | the `core` chart version every project uses | maintainers |
-| `tags/<slug>.json` | the image or site build CI last published | CI only |
-| `charts/core/` | the chart that renders a project into a Compose project and its route; its `values.yaml` lists every option and default | maintainers |
-| `edge/` | Traefik (Let's Encrypt through Cloudflare DNS), Sablier and the wake scheduler on the VPS | maintainers |
-| `host/` | VPS bootstrap, the deploy agent, `graphite-agent.service` and `graphite-up` | maintainers |
+| `deploy/host.yaml` | the VPS memory budget | maintainers |
+| `shared/` | `app.yaml`, `postgres.yaml`, `redis.yaml`, `redis-password.yaml`: the hardening, limits, health checks and defaults every service extends | maintainers |
+| `edge/` | Traefik (Let's Encrypt through Cloudflare DNS), Sablier, and the shared backup service | maintainers |
+| `host/` | VPS bootstrap, the deploy agent, `graphite-agent.service`, `graphite-up` and `graphite-report` | maintainers |
+| `scripts/` | `deploy.py`, `agent.py`, `cloudflare.py`, `check-memory.py`, `check-values.py`, `sync.py`, `validate.py`, `uptime.py` | maintainers |
 
-Secret values never live here. They are in the owners-only `secrets` repository, which only an
-organisation owner can change and apply.
+Secret values never live here. They are entered in the console's Secrets page and reach the VPS as
+`/etc/graphite/<slug>.env`; a compose file names them as `${NAME:?}`.
 
 ## How a deploy happens
 
-1. A project's CI publishes its images, or records its static-site commit, in `tags/<slug>.json`.
-2. That push runs **Deploy**, as does any push to `main` under `charts/core/`, `deploy/`, `edge/`,
-   `host/` or `projects/`. A change to `deploy/<slug>/`, `tags/<slug>.json` or
-   `projects/<slug>.yml` deploys that project; a change to `edge/` or `host/` redeploys the edge.
-   Deploy merges `deploy/<slug>/core.yaml` and `values.yaml`, renders them with the `core` chart
-   version in `deploy/chart.yaml` and posts the result, signed with `DEPLOY_TOKEN`, to the deploy agent at `deploy.project-graphite.com`. The
-   agent checks the project's secrets exist, runs `docker compose up --wait` and publishes the
-   route to Traefik. Deploy then points the hostname at the VPS with a DNS-only record
-   (`proxied: true` sends it through Cloudflare instead).
-3. Static sites are built here from the recorded commit. `deploy.py pages-site` creates the
-   direct-upload Pages project if it is missing, attaches the custom domain and points a proxied
-   CNAME at `<slug>.pages.dev`; it refuses a Git-connected project of the same name. The build is
-   uploaded with `wrangler pages deploy` (Wrangler 4.149.0).
+1. A project's CI publishes `ghcr.io/project-graphite/<repo>/<service>:sha-<short>` after its
+   checks pass, then commits `IMAGE_TAG=sha-<short>` into `deploy/<slug>/values`.
+2. That push runs **Deploy**, as does any push to `main` under `deploy/`, `edge/`, `host/` or
+   `shared/`. A change under `deploy/<slug>/` deploys that project, a change under `shared/`
+   deploys every compose project, and a change under `edge/` or `host/` redeploys the edge and
+   the backup service. An automated push may change only `IMAGE_TAG` and `ENABLED=false` lines.
+3. For a compose project, `deploy.py` renders `compose.yaml` with `docker compose config`, with
+   `PROJECT` from the folder name, `HOST` from the registry and every `${NAME:?}` it cannot
+   supply stubbed, and posts the rendered file, the values, the mounted files, the Traefik route
+   and the list of required secret names to the deploy agent at `deploy.project-graphite.com`,
+   signed with `DEPLOY_TOKEN`. No secret value is read or sent.
+4. The agent verifies the signature, refuses a compose file that asks for host access, and
+   answers `waiting on secrets: …` without touching anything when `/etc/graphite/<slug>.env`
+   lacks a required name. Otherwise it writes the folder under `/srv/graphite/<slug>/`, runs
+   `graphite-up`, which is `docker compose up -d --wait --remove-orphans` with the values and
+   the env file, publishes the route to Traefik, and reports the rollout to the Hub.
+5. **Deploy** points the hostname at the VPS: a DNS-only A record, or proxied through
+   Cloudflare when the values set `PROXIED=true`, as the apex and the console do.
 
-**PR** runs on every pull request. `deploy.py check` renders every project, not the edge, and
-merging deploys what changed. A chart change tags `core-v<version>` and deploys nothing until
-`deploy/chart.yaml` moves to it, which redeploys every project.
+A project whose values hold `ENABLED=false`, or whose `deploy/<slug>/` folder is gone while the
+registry still says `compose`, is taken down: the agent removes the route and stops its containers.
+Its volumes and env file stay.
+
+Static sites still deploy to Cloudflare Pages: `deploy.py pages-info` resolves the recorded
+`IMAGE_TAG` to a commit, the workflow builds the registry's `deploy.source` on Node 24, and
+`deploy.py pages-site` creates the direct-upload Pages project if it is missing, attaches the host
+and points a proxied CNAME at `<slug>.pages.dev` before `wrangler pages deploy`. Only
+`digital-to-physical` uses this path.
 
 ## Projects
 
@@ -45,97 +56,88 @@ A project on the VPS is a folder:
 
 ```
 deploy/strata/
-  core.yaml      what runs
-  values.yaml    how it is configured
+  compose.yaml   what runs, extending shared/
+  values         IMAGE_TAG and the settings that differ from a default
   files/         scripts its services mount, if any
 ```
 
-The smallest project is one service with a port, which gets the project's hostname:
+The smallest project is one service that extends `shared/app.yaml`:
 
 ```yaml
-# core.yaml
+# compose.yaml
 services:
   app:
-    image: ghcr.io/project-graphite/<repo>/app
-    port: 3000
-    health: /health
+    extends: {file: ../../shared/app.yaml, service: app}
+    image: ghcr.io/project-graphite/<repo>/app:${IMAGE_TAG:?}
+    environment:
+      API_KEY: ${API_KEY:?}
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1:3000/health]
+
+networks:
+  edge: {external: true}
 ```
 
-```yaml
-# values.yaml
-app:
-  memory: 256M
-  env:
-    APP_URL: https://<slug>.project-graphite.com
-  secrets: [API_KEY]
+```
+# values
+IMAGE_TAG=sha-1a2b3c4
+APP_MEMORY=512M
 ```
 
-`values.yaml` uses the names from `core.yaml`, a service or a built-in component, and its fields
-are merged over them; it can also set `enabled: false`. **PR** fails when it names something
-`core.yaml` does not define. Either file can hold any field: by convention, what a project is goes in
-`core.yaml` and what you tune goes in `values.yaml`.
+`shared/app.yaml` gives the `app` service `init`, `restart: unless-stopped`, rotated logs,
+`no-new-privileges`, a health check every 30 s, `APP_URL=https://${HOST}`, the `edge` network
+under the project's name, and a limit of `APP_MEMORY` (256M), `APP_RESERVE` (64M) and `APP_CPUS`
+(0.5) on port `APP_PORT` (3000). The service that joins the edge network as `${PROJECT}` gets the
+registry host. `shared/postgres.yaml` adds PostgreSQL 18 as `${PROJECT}` with `POSTGRES_PASSWORD`,
+labelled for backup; `shared/redis.yaml` adds Redis 8 with `REDIS_MAXMEMORY` (48mb) and
+`REDIS_POLICY` (`allkeys-lru`), and `shared/redis-password.yaml` the same behind `REDIS_PASSWORD`.
+Each has its own `*_MEMORY`, `*_RESERVE` and `*_CPUS`.
 
-Every option and its default is in [`charts/core/values.yaml`](charts/core/values.yaml). A project
-writes only what differs.
+Rules the fragments set, which **PR** enforces:
 
-| Key in `core.yaml` | Gives |
-| :--- | :--- |
-| `services.<name>` | any container: image, port, health, env, secrets, volumes, files, command and the rest |
-| `postgres` | a PostgreSQL server; every service gets `DATABASE_URL` and `POSTGRES_*` and waits for it |
-| `redis` | a Redis server; every service gets `REDIS_URL` and waits for it |
-| `backup` | a daily `pg_dump` into the `backups` volume, plus a tar of the volumes it lists |
-| `sleep` | stops the project after `after` without requests; `wake` starts it on a schedule |
-| `proxied` | sends the hostname through Cloudflare's proxy |
+- A secret or setting is `${NAME:?}` where it is required and `${NAME:-default}` where it is not,
+  so `docker compose config` enforces presence and a default is written once.
+- A `values` line equal to its default is refused; `IMAGE_TAG` must be a `sha-` tag, and a
+  `ghcr.io` image is tagged `${IMAGE_TAG:?}` or `sha-`.
+- Every service has a memory limit, and the reservations fit `deploy/host.yaml`.
+- A compose file may not use `privileged`, `pid`, `ports`, `build`, `env_file`, host paths or
+  external volumes; the agent refuses them. The console, the edge and the backup service are the
+  exceptions.
+- Backups are labels: `graphite.backup.postgres: "true"` on a PostgreSQL container, and
+  `graphite.backup.volumes: name,name` on a service for the named volumes.
 
-A service's `secrets` must exist in `secrets/<slug>.env` and are passed through under the same
-name; `optional` names are passed when present. `env` holds plain settings, and `${NAME}` or
-`${NAME:-default}` in it reads the secrets file; a name without a default must be in some service's
-`secrets`. `files` mounts a file from `deploy/<slug>/files/`. With several ported services, set
-`public: true` on the one that gets the hostname.
+`deploy/strata/` shows PostgreSQL, Redis with a password and a files volume; `deploy/pixelpocket/`
+shows plain services with mounted scripts; `deploy/graphite-hub/` shows a proxied host and Redis
+with `noeviction`.
 
-A service can answer on more hostnames with `hosts: [api.<slug>.project-graphite.com]`; Deploy
-points each at the VPS and routes it to that service's `port`, and **PR** fails when a hostname is
-outside `project-graphite.com` or already used. `jobs` runs commands inside a running service on a
-cron schedule, in UTC:
+A static site needs only `deploy/<slug>/values` with `IMAGE_TAG`, and `ENABLED=false` to stop
+new uploads. Its build comes from the registry's `deploy.source`.
 
-```yaml
-worker:
-  image: ghcr.io/project-graphite/<repo>/worker
-  jobs:
-    - {name: nightly, schedule: "0 3 * * *", command: [python, -m, reports]}
-```
+## The edge and backups
 
-The edge's scheduler (Ofelia) runs them with `docker exec`, as root unless the job sets `user`. A
-sleeping project can't have jobs, since its containers are stopped when they fall due.
+`edge/compose.yaml` runs Traefik on 80 and 443 with HTTP/3, redirecting HTTP, with certificates
+from Let's Encrypt through a Cloudflare DNS challenge (`CF_DNS_API_TOKEN`) and one route file per
+project from `/srv/graphite/edge/routes/`; and Sablier, which no route uses at present. `edge/agent.yml`
+is the route to the deploy agent.
 
-An image with `:` or `@` is used as written. Any other image gets `tag`, else the tag in
-`tags/<slug>.json`, else `latest`. To roll back, set `<service>: {tag: sha-1a2b3c4}` in
-`values.yaml`.
-
-`deploy/strata/` shows `postgres`, `redis` and `backup`; `deploy/pixelpocket/` shows plain services
-with mounted scripts; `deploy/graphite-message-lab/` shows `sleep`.
-
-A static site needs only `deploy/<slug>/values.yaml` with `enabled: true`, and an optional `tag`
-pin. Its build comes from the registry's `deploy.source`.
-
-`deploy/host.yaml` holds the VPS memory budget. **PR** fails when the rendered reservations exceed
-`memory` minus `system`.
-
-## The core chart
-
-`charts/core` is versioned by `Chart.yaml`. **Deploy** tags `core-v<version>` on the first push of
-a new version, and `deploy/chart.yaml` picks the version every project renders with. A project can
-stay behind with `core: <version>` in its `core.yaml`. A pull request that changes the chart without
-bumping its version fails.
+`edge/backup.yaml` runs `backup.py` as its own compose project. Every day at 03:00 UTC, or on
+the schedule set on the console's Backups page, it dumps every container labelled
+`graphite.backup.postgres` with `pg_dump` through `docker exec`, packs every volume a service
+lists under `graphite.backup.volumes`, taking a consistent copy of any SQLite file inside, and
+writes `/var/lib/graphite/backups/<project>/<stamp>.tar` with a manifest of sizes and checksums.
+Each archive is reopened and verified after it is written: checksums, `pg_restore --list`,
+`PRAGMA integrity_check` on every SQLite copy, every tar listed to its end. A failed check marks
+the archive failed and raises a console alert. Archives are kept 14 days. The console orders runs,
+verifications and restores through files under `.requests/`.
 
 ## Workflows
 
 | Workflow | Runs on | What it does |
 | :--- | :--- | :--- |
-| **Main** | push to `main` under `projects/`, `people/`, `schema/` or `scripts/` | validates and compiles the registry and commits it to `graphite-hub` as `site/src/data/registry.json` |
-| **Sync registry** | `sync-registry` repository dispatch, or by hand | syncs each repository's `.graphite.yml` and members' GitHub profiles into `projects/` and `people/`, opens a pull request and merges it once **PR** passes |
-| **Deploy** | push to `main` (see above), or by hand | releases the core chart, deploys the VPS, builds and uploads static sites |
-| **PR** | every pull request | validates the registry, runs `deploy.py check`, scans for secrets and runs the shared PR checks |
+| **Deploy** | push to `main` under `deploy/`, `edge/`, `host/` or `shared/`, or by hand with a slug, `edge` or `all` | plans what changed, deploys the VPS through the agent, builds and uploads static sites, points DNS |
+| **PR** | every pull request | `validate.py` on the registry, `deploy.py check`, `check-memory.py`, `check-values.py`, gitleaks, and the shared PR checks |
+| **Sync registry** | every hour, a `sync-registry` repository dispatch from the Hub when a `.graphite.yml` changes, or by hand | rereads every repository's `.graphite.yml` into `projects/`, opens `automation/sync-project-registry`, waits for **PR** and merges it with the app's bypass |
+| **Uptime** | every 10 minutes | probes every enabled host and the agent from GitHub and opens or closes a `Down: <host>` issue |
 
 ## Settings
 
@@ -143,7 +145,7 @@ The `production` environment only deploys from `main`.
 
 | Secret | Value |
 | :--- | :--- |
-| `DEPLOY_TOKEN` | the deploy agent's token, the same as on the VPS and in `secrets` |
+| `DEPLOY_TOKEN` | the deploy agent's token, the same as `/agent/DEPLOY_TOKEN` in the console |
 | `CLOUDFLARE_API_TOKEN` | Zone → DNS → Edit and Account → Cloudflare Pages → Edit |
 
 | Variable | Value |
@@ -154,8 +156,8 @@ The `production` environment only deploys from `main`.
 | `CLOUDFLARE_ZONE_ID` | the `project-graphite.com` zone |
 
 Deploy skips the VPS when `DEPLOY_URL` is empty and static sites when `CLOUDFLARE_ACCOUNT_ID` is
-empty. The repository secrets `PLATFORM_APP_CLIENT_ID` and `PLATFORM_APP_PRIVATE_KEY` are the
-platform GitHub App's credentials, used by **Main** and **Sync registry**.
+empty. The organisation secrets `PLATFORM_APP_CLIENT_ID` and `PLATFORM_APP_PRIVATE_KEY` are the
+platform GitHub App's credentials, used by **PR** and **Sync registry** to read the organisation.
 
 ## Setting up the VPS
 
@@ -168,37 +170,32 @@ sudo DEPLOY_TOKEN=<token> CF_DNS_API_TOKEN=<certificate token> sh bootstrap.sh
 
 The certificate token is the one Traefik uses for Let's Encrypt DNS challenges and needs
 Zone → Zone → Read and Zone → DNS → Edit. The script creates the `deploy` user,
-`/srv/graphite/{bin,edge,edge/routes}`, `/etc/graphite-agent.env` with `DEPLOY_TOKEN` and `BIND`,
-`edge/secrets.env`, the `edge` network and `graphite-agent.service`, then starts the edge. The
-agent listens on the Docker bridge gateway at port 9000, and Traefik routes
-`deploy.project-graphite.com` to it (`edge/agent.yml`).
+`/srv/graphite/{bin,edge,edge/routes}`, `/etc/graphite/agent.env` with `DEPLOY_TOKEN` and `BIND`,
+the edge's `secrets.env`, the `edge` network and `graphite-agent.service`, then starts the edge.
+The agent listens on the Docker bridge gateway at port 9000, and Traefik routes
+`deploy.project-graphite.com` to it. Run the script again to update the agent; `host/` files reach
+the VPS only through it.
 
 ## Running it
 
 ```sh
 pip install pyyaml jsonschema
 python scripts/validate.py
-python scripts/compile.py registry.json
-git fetch --tags
 python scripts/deploy.py check
+python scripts/check-memory.py
+python scripts/check-values.py
 ```
 
-`deploy.py check` needs Helm 3, Docker and the `core-v*` tags. Deploy uses the other subcommands:
-`release-core`, `plan`, `apply`, `pages-info <slug>` and `pages-site <slug>`.
-`python scripts/agent.py secrets <name> < secrets.env` sends a secrets file to the agent; it needs
-`DEPLOY_TOKEN` and `DEPLOY_URL`. Deploy runs on demand from Actions → **Deploy** → Run workflow,
-with a project slug, `edge` or `all`.
+`validate.py` needs `GH_TOKEN` to check owners against the organisation; the others need Docker.
+Deploy uses the other subcommands: `plan`, `apply`, `pages-info <slug>` and `pages-site <slug>`.
+Deploy runs on demand from Actions → **Deploy** → Run workflow, with a project slug, `edge` or `all`.
 
 ## Editor support
 
 ```json
 {
   "yaml.schemas": {
-    "./schema/project.schema.json": "projects/*.yml",
-    "./schema/person.schema.json": "people/*.yml"
+    "./schema/project.schema.json": "projects/*.yml"
   }
 }
 ```
-
-`charts/core/values.schema.json` checks a project after Deploy merges its two files and adds `slug`,
-so it does not validate `core.yaml` or `values.yaml` on their own.
