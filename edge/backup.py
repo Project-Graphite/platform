@@ -368,10 +368,11 @@ def restore(project, name):
 def handle(request):
     working = request.with_suffix(".running")
     request.replace(working)
-    order = json.loads(working.read_text(encoding="utf-8"))
-    log(f"{order['action']} {order.get('project')} {order.get('archive', '')} for {order.get('by')}")
-    result = {**order, "at": datetime.datetime.now(datetime.UTC).isoformat()}
+    result = {"at": datetime.datetime.now(datetime.UTC).isoformat()}
     try:
+        order = json.loads(working.read_text(encoding="utf-8"))
+        result.update(order)
+        log(f"{order['action']} {order.get('project')} {order.get('archive', '')} for {order.get('by')}")
         if order["action"] == "run":
             summaries = run(order["project"])
             result.update(ok=all(entry["ok"] for entry in summaries), output="; ".join(f"{entry['project']}: {'verified' if entry['ok'] else '; '.join(entry['errors'])}" for entry in summaries))
@@ -391,7 +392,7 @@ def handle(request):
         result.update(ok=False, output=str(error))
     working.with_suffix(".result").write_text(json.dumps(result), encoding="utf-8")
     working.unlink()
-    log(f"{order['action']} {order.get('project')}: {'done' if result['ok'] else 'FAILED: ' + result['output']}")
+    log(f"{result.get('action')} {result.get('project')}: {'done' if result['ok'] else 'FAILED: ' + result['output']}")
 
 
 def due(plan, last, now):
@@ -402,7 +403,11 @@ def serve():
     for folder in (REQUESTS, WORK):
         folder.mkdir(parents=True, exist_ok=True)
     for interrupted in REQUESTS.glob("*.running"):
-        interrupted.with_suffix(".result").write_text(json.dumps({**json.loads(interrupted.read_text(encoding="utf-8")), "ok": False, "output": "interrupted by a restart"}), encoding="utf-8")
+        try:
+            order = json.loads(interrupted.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            order = {}
+        interrupted.with_suffix(".result").write_text(json.dumps({**order, "ok": False, "output": "interrupted by a restart"}), encoding="utf-8")
         interrupted.unlink()
     last = datetime.datetime.now(datetime.UTC)
     plan = schedule()
