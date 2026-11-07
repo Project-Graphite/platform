@@ -14,7 +14,7 @@ tags:
 owner: amrmscll
 authors:
 - AmrMsCLL
-status: live
+status: archived
 listed: true
 showcase:
   problem: 'Project Graphite needed an approachable application that visitors could use while proving
@@ -38,6 +38,5 @@ showcase:
 
       '
 deploy:
-  kind: compose
-  host: message-lab.project-graphite.com
+  kind: none
 repo: project-graphite/graphite-message-lab
