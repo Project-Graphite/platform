@@ -1,0 +1,41 @@
+slug: graphite-lyrics
+kind: project
+name: Graphite Lyrics
+summary: 'Synced, animated lyrics for a Lian Li 9.2-inch case screen, driven by whatever Windows is playing,
+  with a dynamic cover background and an idle loop.
+
+  '
+tags:
+- csharp
+- windows
+- wpf
+- winrt
+- lyrics
+owner: amrmscll
+authors:
+- AmrMsCLL
+status: source-only
+listed: true
+showcase:
+  problem: 'A case screen in secondary-display mode is just another monitor, and the vendor software can
+    only show sensor widgets and fixed text, so it cannot follow the music that is playing.
+
+    '
+  approach: 'A background agent reads the Windows media session, fetches time-synced lyrics from LRCLIB
+    and renders them at the display''s refresh rate on the case screen, with a blurred cover background,
+    a word sweep, instrumental bubbles and optional romanization, while a settings app configures it live.
+
+    '
+  outcome: 'The case screen follows any player Windows can see, from Spotify to browser tabs, and falls
+    back to a chosen idle video when nothing is playing.
+
+    '
+  contributions:
+  - github: AmrMsCLL
+    summary: 'Designed the agent and settings app, the media-session clock, the LRCLIB client, the lyric
+      renderer and the Project Graphite styling.
+
+      '
+deploy:
+  kind: none
+repo: project-graphite/graphite-lyrics
