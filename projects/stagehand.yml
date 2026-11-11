@@ -1,0 +1,47 @@
+slug: stagehand
+kind: project
+name: Stagehand
+summary: 'Runs a Lian Li case from backstage: synced, animated lyrics or a now-watching card on the 9.2-inch
+  case screen, plus one switch for every RGB light and one for every screen.
+
+  '
+tags:
+- csharp
+- windows
+- wpf
+- winrt
+- lyrics
+- rgb
+owner: amrmscll
+authors:
+- AmrMsCLL
+status: source-only
+listed: true
+showcase:
+  problem: 'A case screen in secondary-display mode is just another monitor, the vendor software can only
+    show sensor widgets and fixed text, and switching off the case''s lighting and screens means visiting
+    several apps and settings pages.
+
+    '
+  approach: 'A background agent reads the Windows media session, fetches time-synced lyrics from LRCLIB
+    and renders them at the display''s refresh rate on the case screen, with a blurred cover background,
+    a word sweep that follows each script''s direction, instrumental bubbles, optional romanization and
+    a now-watching card for videos. A settings app drives L-Connect 3''s local service to switch every
+    RGB device, including the motherboard, GPU and RAM through its OpenRGB integration, and every screen
+    off and back to exactly what they were.
+
+    '
+  outcome: 'The case screen follows any player Windows can see, from Spotify to browser tabs, falls back
+    to a chosen idle video when nothing is playing, and the whole case goes dark or comes back with two
+    switches.
+
+    '
+  contributions:
+  - github: AmrMsCLL
+    summary: 'Designed the agent and settings app, the media-session clock, the LRCLIB client, the lyric
+      renderer, the L-Connect 3 integration and the Project Graphite styling.
+
+      '
+deploy:
+  kind: none
+repo: project-graphite/stagehand
