@@ -1,0 +1,23 @@
+slug: duet
+kind: project
+name: Duet
+summary: 'Your Android phone''s audio, screen, notifications and files on your Windows PC, found by name
+  on your Wi-Fi with no static IP.
+
+  '
+tags:
+- csharp
+- kotlin
+- android
+- windows
+- wpf
+- scrcpy
+owner: amrmscll
+authors:
+- AmrMsCLL
+status: wip
+listed: true
+releases: manual
+deploy:
+  kind: none
+repo: project-graphite/duet
