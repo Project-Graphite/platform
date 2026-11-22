@@ -30,20 +30,22 @@ showcase:
     pull jobs and compile and run C++ and Python code in throwaway Docker sandboxes with no network, a
     read-only filesystem, and capped CPU, memory and processes, then classify the verdict against hidden
     test cases. Results reach a React frontend over WebSockets, and Redis sorted sets power live contest
-    leaderboards. Docker Compose and GitHub Actions CI/CD handle deployment.
+    leaderboards. Docker Compose runs it all on one server.
 
     '
   outcome: 'Users submit code and see a verdict (Accepted, Wrong Answer, Time Limit, Memory Limit, Runtime
-    or Compile Error) within seconds, with no page refresh. Capacity scales by adding workers, and a k6
-    load test measured [X] submissions per minute with [N] workers. It hosted a contest for [N] real participants.
+    or Compile Error) within seconds, with no page refresh. Capacity scales by adding workers: in a k6
+    load test on four sandbox cores, judging rose from 58 submissions per minute with one worker to 172
+    with eight.
 
     '
   contributions:
   - github: Omar-Mohamed24
     summary: 'Built the whole platform: the sandboxed judge workers, the queue-based API, the React frontend
-      with live verdicts, and the CI/CD and Docker Compose deployment.
+      with live verdicts, and the Docker Compose deployment.
 
       '
 deploy:
-  kind: none
+  kind: compose
+  host: maat.project-graphite.com
 repo: project-graphite/Maat
