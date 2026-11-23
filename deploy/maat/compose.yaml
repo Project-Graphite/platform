@@ -1,0 +1,202 @@
+services:
+  frontend:
+    extends: {file: ../../shared/app.yaml, service: app}
+    image: ghcr.io/project-graphite/maat/frontend:${IMAGE_TAG:?}
+    healthcheck:
+      test: [CMD, wget, -qO, /dev/null, "http://127.0.0.1:8080/"]
+      start_period: 10s
+      start_interval: 2s
+    depends_on:
+      backend: {condition: service_healthy}
+
+  backend:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: ghcr.io/project-graphite/maat/backend:${IMAGE_TAG:?}
+    expose: ["5000"]
+    environment:
+      NODE_ENV: production
+      PORT: "5000"
+      FRONTEND_URL: https://${HOST}
+      DATABASE_LOCAL: mongodb://maat:${MONGO_PASSWORD:?}@mongo:27017/maat?authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+      JWT_SECRET: ${JWT_SECRET:?}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-90d}
+      JWT_COOKIE_EXPIRES_IN: ${JWT_COOKIE_EXPIRES_IN:-90}
+      API_RATE_LIMIT: ${API_RATE_LIMIT:-1000}
+      EMAIL_HOST: ${EMAIL_HOST:?}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_FROM: ${EMAIL_FROM:?}
+      EMAIL_USERNAME: ${EMAIL_USERNAME:?}
+      EMAIL_PASSWORD: ${EMAIL_PASSWORD:?}
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: maat
+      S3_ACCESS_KEY: maat-app
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:5000/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      start_period: 30s
+      start_interval: 3s
+    depends_on:
+      mongo: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      minio-init: {condition: service_completed_successfully}
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 384M}
+        reservations: {memory: 96M}
+
+  worker:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: ghcr.io/project-graphite/maat/worker:${IMAGE_TAG:?}
+    user: "1500:1500"
+    command: [sh, /judge-start.sh]
+    environment:
+      HOME: /tmp
+      DOCKER_HOST: unix:///srv/maat-judge/run/docker.sock
+      DATABASE_LOCAL: mongodb://maat:${MONGO_PASSWORD:?}@mongo:27017/maat?authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379
+      JOBS_DIR: /srv/maat-judge/jobs
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-1}
+      SANDBOX_CPUSET: ${SANDBOX_CPUSET:-1}
+    volumes:
+      - {type: bind, source: /srv/maat-judge/run, target: /srv/maat-judge/run, read_only: true}
+      - {type: bind, source: /srv/maat-judge/jobs, target: /srv/maat-judge/jobs}
+    configs:
+      - {source: judge-start, target: /judge-start.sh}
+    stop_grace_period: 2m
+    healthcheck:
+      test: [CMD-SHELL, "test -n \"$$(find /tmp/worker-healthy -mmin -1)\" && docker version > /dev/null"]
+      timeout: 10s
+      start_period: 300s
+      start_interval: 5s
+    depends_on:
+      mongo: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 256M}
+        reservations: {memory: 48M}
+
+  mongo:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: mongo:7
+    command: [mongod, --wiredTigerCacheSizeGB, "0.25"]
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: maat
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?}
+    volumes: [mongo-data:/data/db]
+    stop_grace_period: 30s
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    deploy:
+      resources:
+        limits: {cpus: "0.5", memory: 512M}
+        reservations: {memory: 128M}
+
+  mongo-backup:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: mongo:7
+    entrypoint: [bash, /mongo-backup.sh]
+    command: [loop]
+    environment:
+      MONGO_PASSWORD: ${MONGO_PASSWORD:?}
+    volumes: [mongo-dump:/backup]
+    labels: {graphite.backup.volumes: mongo-dump}
+    configs:
+      - {source: mongo-backup, target: /mongo-backup.sh}
+    healthcheck:
+      test: [CMD-SHELL, "test -n \"$$(find /tmp/backup-ok -mmin -90)\""]
+      start_period: 60s
+      start_interval: 2s
+    depends_on:
+      mongo: {condition: service_healthy}
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 192M}
+        reservations: {memory: 16M}
+
+  redis:
+    extends: {file: ../../shared/redis-password.yaml, service: redis}
+
+  redis-backup:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: redis:8.10-alpine
+    entrypoint: [sh, /redis-backup.sh]
+    command: [loop]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?}
+    volumes: [redis-dump:/backup]
+    labels: {graphite.backup.volumes: redis-dump}
+    configs:
+      - {source: redis-backup, target: /redis-backup.sh}
+    healthcheck:
+      test: [CMD-SHELL, "test -n \"$$(find /tmp/backup-ok -mmin -90)\""]
+      start_period: 60s
+      start_interval: 2s
+    depends_on:
+      redis: {condition: service_healthy}
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 160M}
+        reservations: {memory: 8M}
+
+  minio:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: cgr.dev/chainguard/minio@sha256:d88920d6a50bd0b088223b688be3b76c63e6205dbe494437f67ba1240ea12880
+    command: [server, /data]
+    environment:
+      MINIO_ROOT_USER: maat-admin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+    volumes: [minio-data:/data]
+    labels: {graphite.backup.volumes: minio-data}
+    configs:
+      - {source: minio-healthcheck, target: /healthcheck.sh}
+    healthcheck:
+      test: [CMD, bash, /healthcheck.sh]
+      interval: 10s
+      retries: 10
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 256M}
+        reservations: {memory: 64M}
+
+  minio-init:
+    extends: {file: ../../shared/app.yaml, service: service}
+    image: cgr.dev/chainguard/minio-client@sha256:72f9978d415ea8294d78051fb3aee2fd258d449237633f77f100b5367bb5225d
+    entrypoint: [/bin/bash, /init.sh]
+    restart: "no"
+    environment:
+      MINIO_ROOT_USER: maat-admin
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?}
+      S3_BUCKET: maat
+      S3_ACCESS_KEY: maat-app
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+    configs:
+      - {source: minio-init, target: /init.sh}
+    healthcheck: !reset {}
+    depends_on:
+      minio: {condition: service_healthy}
+    deploy:
+      resources:
+        limits: {cpus: "0.25", memory: 128M}
+        reservations: !reset {}
+
+volumes:
+  mongo-data: {}
+  mongo-dump: {}
+  redis-data: {}
+  redis-dump: {}
+  minio-data: {}
+
+configs:
+  judge-start: {file: ./files/judge-start.sh}
+  mongo-backup: {file: ./files/mongo-backup.sh}
+  redis-backup: {file: ./files/redis-backup.sh}
+  minio-healthcheck: {file: ./files/minio-healthcheck.sh}
+  minio-init: {file: ./files/minio-init.sh}
+
+networks:
+  edge: {external: true}
