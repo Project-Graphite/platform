@@ -1,8 +1,8 @@
 slug: beacon
 kind: project
 name: Beacon
-summary: 'A tray app and overlay that shows the state of every running Claude session on the machine and
-  lets you answer permission prompts and send prompts from one place.
+summary: 'A tray app and overlay that shows the state of every running Claude Code session on the machine
+  and lets you answer permission prompts and send prompts from one place.
 
   '
 tags:
@@ -10,12 +10,13 @@ tags:
 - tauri
 - react
 - typescript
+- windows
 - claude-code
 owner: amrmscll
 authors:
 - AmrMsCLL
 status: wip
-listed: false
+listed: true
 releases: manual
 deploy:
   kind: none
